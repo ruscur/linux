@@ -24,8 +24,7 @@
 
 #define TRACEFS_DEFAULT_MODE	0700
 
-static struct vfsmount *tracefs_mount;
-static int tracefs_mount_count;
+static struct simple_fs tracefs;
 static bool tracefs_registered;
 
 static ssize_t default_read_file(struct file *file, char __user *buf,
@@ -316,8 +315,7 @@ static struct dentry *start_creating(const char *name, struct dentry *parent)
 
 	pr_debug("tracefs: creating file '%s'\n",name);
 
-	error = simple_pin_fs(&trace_fs_type, &tracefs_mount,
-			      &tracefs_mount_count);
+	error = simple_pin_fs(&tracefs, &trace_fs_type);
 	if (error)
 		return ERR_PTR(error);
 
@@ -327,7 +325,7 @@ static struct dentry *start_creating(const char *name, struct dentry *parent)
 	 * have around.
 	 */
 	if (!parent)
-		parent = tracefs_mount->mnt_root;
+		parent = tracefs.mount->mnt_root;
 
 	inode_lock(parent->d_inode);
 	if (unlikely(IS_DEADDIR(parent->d_inode)))
@@ -341,7 +339,7 @@ static struct dentry *start_creating(const char *name, struct dentry *parent)
 
 	if (IS_ERR(dentry)) {
 		inode_unlock(parent->d_inode);
-		simple_release_fs(&tracefs_mount, &tracefs_mount_count);
+		simple_release_fs(&tracefs);
 	}
 
 	return dentry;
@@ -351,7 +349,7 @@ static struct dentry *failed_creating(struct dentry *dentry)
 {
 	inode_unlock(dentry->d_parent->d_inode);
 	dput(dentry);
-	simple_release_fs(&tracefs_mount, &tracefs_mount_count);
+	simple_release_fs(&tracefs);
 	return NULL;
 }
 
@@ -504,7 +502,7 @@ __init struct dentry *tracefs_create_instance_dir(const char *name,
 
 static void remove_one(struct dentry *victim)
 {
-	simple_release_fs(&tracefs_mount, &tracefs_mount_count);
+	simple_release_fs(&tracefs);
 }
 
 /**
@@ -520,9 +518,9 @@ void tracefs_remove(struct dentry *dentry)
 	if (IS_ERR_OR_NULL(dentry))
 		return;
 
-	simple_pin_fs(&trace_fs_type, &tracefs_mount, &tracefs_mount_count);
+	simple_pin_fs(&tracefs, &trace_fs_type);
 	simple_recursive_removal(dentry, remove_one);
-	simple_release_fs(&tracefs_mount, &tracefs_mount_count);
+	simple_release_fs(&tracefs);
 }
 
 /**

@@ -665,38 +665,63 @@ EXPORT_SYMBOL(simple_fill_super);
 
 static DEFINE_SPINLOCK(pin_fs_lock);
 
-int simple_pin_fs(struct file_system_type *type, struct vfsmount **mount, int *count)
+/**
+ * simple_pin_fs - generic function to pin (mount if needed,
+ *                otherwise add a reference to the mount) a filesystem
+ * @fs: a pointer to a the simple_fs struct containing a struct vfs_mount
+ *      pointer (that can be NULL) and a counter.
+ * @type: a pointer to the file system type used by vfs_kern_mount.
+ *
+ * This function sets fs->mount if NULL, by calling vfs_kern_mount
+ * on @type.
+ * It also takes care of incrementing the reference counter.
+ *
+ * This function will return 0 in case of success, and PTR_ERR(-ERROR)
+ * if vfs_kern_mount fails.
+ **/
+int simple_pin_fs(struct simple_fs *fs, struct file_system_type *type)
 {
 	struct vfsmount *mnt = NULL;
 	spin_lock(&pin_fs_lock);
-	if (unlikely(!*mount)) {
+	if (unlikely(!fs->mount)) {
 		spin_unlock(&pin_fs_lock);
 		mnt = vfs_kern_mount(type, SB_KERNMOUNT, type->name, NULL);
 		if (IS_ERR(mnt))
 			return PTR_ERR(mnt);
 		spin_lock(&pin_fs_lock);
-		if (!*mount)
-			*mount = mnt;
+		if (!fs->mount)
+			fs->mount = mnt;
 	}
-	mntget(*mount);
-	++*count;
+	mntget(fs->mount);
+	++fs->count;
 	spin_unlock(&pin_fs_lock);
 	mntput(mnt);
 	return 0;
 }
 EXPORT_SYMBOL(simple_pin_fs);
 
-void simple_release_fs(struct vfsmount **mount, int *count)
+/**
+ * simple_release_fs - decrements the reference counter and unmounts the
+ *                    file system.
+ * @fs: a pointer to a struct simple_fs containing the reference counter
+ *      and vfs_mount pointer
+ *
+ * This function decrements the refcount of the given file system and
+ * if 0 sets the mount pointer to NULL.
+ **/
+void simple_release_fs(struct simple_fs *fs)
 {
 	struct vfsmount *mnt;
 	spin_lock(&pin_fs_lock);
-	mnt = *mount;
-	if (!--*count)
-		*mount = NULL;
+	mnt = fs->mount;
+	if (!--fs->count)
+		fs->mount = NULL;
 	spin_unlock(&pin_fs_lock);
 	mntput(mnt);
 }
 EXPORT_SYMBOL(simple_release_fs);
+
+
 
 /**
  * simple_read_from_buffer - copy data from the buffer to user space

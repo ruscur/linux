@@ -140,8 +140,7 @@ static int mangle_name(const char *name, char *target)
  */
 
 #define AAFS_NAME		"apparmorfs"
-static struct vfsmount *aafs_mnt;
-static int aafs_count;
+static struct simple_fs aafs;
 
 
 static int aafs_show_path(struct seq_file *seq, struct dentry *dentry)
@@ -273,7 +272,7 @@ static struct dentry *aafs_create(const char *name, umode_t mode,
 	if (!(mode & S_IFMT))
 		mode = (mode & S_IALLUGO) | S_IFREG;
 
-	error = simple_pin_fs(&aafs_ops, &aafs_mnt, &aafs_count);
+	error = simple_pin_fs(&aafs, &aafs_ops);
 	if (error)
 		return ERR_PTR(error);
 
@@ -303,7 +302,7 @@ fail_dentry:
 
 fail_lock:
 	inode_unlock(dir);
-	simple_release_fs(&aafs_mnt, &aafs_count);
+	simple_release_fs(&aafs);
 
 	return ERR_PTR(error);
 }
@@ -395,7 +394,7 @@ static void aafs_remove(struct dentry *dentry)
 		dput(dentry);
 	}
 	inode_unlock(dir);
-	simple_release_fs(&aafs_mnt, &aafs_count);
+	simple_release_fs(&aafs);
 }
 
 
@@ -1824,7 +1823,7 @@ static int ns_mkdir_op(struct inode *dir, struct dentry *dentry, umode_t mode)
 	 * for pin_fs
 	 */
 	inode_unlock(dir);
-	error = simple_pin_fs(&aafs_ops, &aafs_mnt, &aafs_count);
+	error = simple_pin_fs(&aafs, &aafs_ops);
 	mutex_lock_nested(&parent->lock, parent->level);
 	inode_lock_nested(dir, I_MUTEX_PARENT);
 	if (error)
@@ -1845,7 +1844,7 @@ static int ns_mkdir_op(struct inode *dir, struct dentry *dentry, umode_t mode)
 	aa_put_ns(ns);		/* list ref remains */
 out_pin:
 	if (error)
-		simple_release_fs(&aafs_mnt, &aafs_count);
+		simple_release_fs(&aafs);
 out:
 	mutex_unlock(&parent->lock);
 	aa_put_ns(parent);
@@ -2580,7 +2579,7 @@ static const char *policy_get_link(struct dentry *dentry,
 		return ERR_PTR(-ECHILD);
 
 	ns = aa_get_current_ns();
-	path.mnt = mntget(aafs_mnt);
+	path.mnt = mntget(aafs.mount);
 	path.dentry = dget(ns_dir(ns));
 	error = nd_jump_link(&path);
 	aa_put_ns(ns);
@@ -2631,10 +2630,10 @@ static int __init aa_create_aafs(void)
 	}
 
 	/* setup apparmorfs used to virtualize policy/ */
-	aafs_mnt = kern_mount(&aafs_ops);
-	if (IS_ERR(aafs_mnt))
+	aafs.mount = kern_mount(&aafs_ops);
+	if (IS_ERR(aafs.mount))
 		panic("can't set apparmorfs up\n");
-	aafs_mnt->mnt_sb->s_flags &= ~SB_NOUSER;
+	aafs.mount->mnt_sb->s_flags &= ~SB_NOUSER;
 
 	/* Populate fs tree. */
 	error = entry_create_dir(&aa_sfs_entry, NULL);
@@ -2667,8 +2666,8 @@ static int __init aa_create_aafs(void)
 
 	/* policy tree referenced by magic policy symlink */
 	mutex_lock_nested(&root_ns->lock, root_ns->level);
-	error = __aafs_ns_mkdir(root_ns, aafs_mnt->mnt_root, ".policy",
-				aafs_mnt->mnt_root);
+	error = __aafs_ns_mkdir(root_ns, aafs.mount->mnt_root, ".policy",
+				aafs.mount->mnt_root);
 	mutex_unlock(&root_ns->lock);
 	if (error)
 		goto error;

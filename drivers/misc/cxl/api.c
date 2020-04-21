@@ -31,8 +31,7 @@
 
 #define CXL_PSEUDO_FS_MAGIC	0x1697697f
 
-static int cxl_fs_cnt;
-static struct vfsmount *cxl_vfs_mount;
+static struct simple_fs cxl_fs;
 
 static int cxl_fs_init_fs_context(struct fs_context *fc)
 {
@@ -50,7 +49,7 @@ static struct file_system_type cxl_fs_type = {
 void cxl_release_mapping(struct cxl_context *ctx)
 {
 	if (ctx->kernelapi && ctx->mapping)
-		simple_release_fs(&cxl_vfs_mount, &cxl_fs_cnt);
+		simple_release_fs(&cxl_fs);
 }
 
 static struct file *cxl_getfile(const char *name,
@@ -66,20 +65,20 @@ static struct file *cxl_getfile(const char *name,
 	if (fops->owner && !try_module_get(fops->owner))
 		return ERR_PTR(-ENOENT);
 
-	rc = simple_pin_fs(&cxl_fs_type, &cxl_vfs_mount, &cxl_fs_cnt);
+	rc = simple_pin_fs(&cxl_fs, &cxl_fs_type);
 	if (rc < 0) {
 		pr_err("Cannot mount cxl pseudo filesystem: %d\n", rc);
 		file = ERR_PTR(rc);
 		goto err_module;
 	}
 
-	inode = alloc_anon_inode(cxl_vfs_mount->mnt_sb);
+	inode = alloc_anon_inode(cxl_fs.mount->mnt_sb);
 	if (IS_ERR(inode)) {
 		file = ERR_CAST(inode);
 		goto err_fs;
 	}
 
-	file = alloc_file_pseudo(inode, cxl_vfs_mount, name,
+	file = alloc_file_pseudo(inode, cxl_fs.mount, name,
 				 flags & (O_ACCMODE | O_NONBLOCK), fops);
 	if (IS_ERR(file))
 		goto err_inode;
@@ -91,7 +90,7 @@ static struct file *cxl_getfile(const char *name,
 err_inode:
 	iput(inode);
 err_fs:
-	simple_release_fs(&cxl_vfs_mount, &cxl_fs_cnt);
+	simple_release_fs(&cxl_fs);
 err_module:
 	module_put(fops->owner);
 	return file;
