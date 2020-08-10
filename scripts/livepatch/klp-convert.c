@@ -22,6 +22,15 @@ static LIST_HEAD(exp_symbols);
 /* In-livepatch user-provided symbol positions are kept in list usr_symbols */
 static LIST_HEAD(usr_symbols);
 
+/* Converted symbols and their struct symbol -> struct sympos association */
+static LIST_HEAD(converted_symbols);
+
+struct converted_sym {
+	struct list_head list;
+	struct symbol *symbol;
+	struct sympos sympos;
+};
+
 static void free_syms_lists(void)
 {
 	struct symbol_entry *entry, *aux;
@@ -401,23 +410,57 @@ static bool valid_sympos(struct sympos *sp)
 	return false;
 }
 
-/* Returns the right sympos respective to a symbol to be relocated */
-static bool find_missing_position(struct symbol *s, struct sympos *sp)
+/*
+ * Add this symbol to the converted_symbols list to cache its sympos and
+ * for later renaming.
+ */
+static bool remember_sympos(struct symbol *s, struct sympos *sp)
 {
-	struct symbol_entry *entry;
+	struct converted_sym *cs;
 
-	if (get_usr_sympos(s, sp)) {
-		if (valid_sympos(sp))
-			return true;
+	cs = calloc(1, sizeof(*cs));
+	if (!cs) {
+		WARN("Unable to allocate converted_symbol entry");
 		return false;
 	}
 
-	/* if no user-provided sympos, search symbol in symbols list */
+	cs->symbol = s;
+	cs->sympos = *sp;
+	list_add(&cs->list, &converted_symbols);
+
+	return true;
+}
+
+/* Returns the right sympos respective to a symbol to be relocated */
+static bool find_sympos(struct symbol *s, struct sympos *sp)
+{
+	struct symbol_entry *entry;
+	struct converted_sym *cs;
+
+	/* did we already convert this symbol? */
+	list_for_each_entry(cs, &converted_symbols, list) {
+		if (cs->symbol == s) {
+			*sp = cs->sympos;
+			return true;
+		}
+	}
+
+	/* did the user specified via annotation? */
+	if (get_usr_sympos(s, sp)) {
+		if (valid_sympos(sp)) {
+			remember_sympos(s, sp);
+			return true;
+		}
+		return false;
+	}
+
+	/* search symbol in symbols list */
 	entry = find_sym_entry_by_name(s->name);
 	if (entry) {
 		sp->symbol_name = entry->symbol_name;
 		sp->object_name = entry->object_name;
 		sp->pos = 0;
+		remember_sympos(s, sp);
 		return true;
 	}
 	return false;
@@ -463,7 +506,7 @@ static struct section *get_or_create_klp_rela_section(struct section *oldsec,
 }
 
 /* Converts rela symbol names */
-static bool convert_klp_symbol(struct symbol *s, struct sympos *sp)
+static bool convert_symbol(struct symbol *s, struct sympos *sp)
 {
 	char *name;
 	char pos[4];	/* assume that pos will never be > 999 */
@@ -507,15 +550,20 @@ static bool convert_klp_symbol(struct symbol *s, struct sympos *sp)
 	return true;
 }
 
+/* Checks if a rela was converted */
+static bool is_converted_rela(struct rela *rela)
+{
+	return !!rela->klp_rela_sec;
+}
+
 /*
  * Convert rela that cannot be resolved by the classic module loader
  * to the special klp rela one.
  */
-static bool convert_rela(struct section *oldsec, struct rela *r,
+static bool convert_rela(struct section *oldsec, struct rela *rela,
 		struct sympos *sp, struct elf *klp_elf)
 {
 	struct section *sec;
-	struct rela *r1;
 
 	sec = get_or_create_klp_rela_section(oldsec, sp, klp_elf);
 	if (!sec) {
@@ -524,22 +572,8 @@ static bool convert_rela(struct section *oldsec, struct rela *r,
 		return false;
 	}
 
-	if (!convert_klp_symbol(r->sym, sp)) {
-		WARN("Unable to convert symbol name (%s.%s)\n", sec->name,
-				r->sym->name);
-		return false;
-	}
+	rela->klp_rela_sec = sec;
 
-	/*
-	 * Iterate through the rest of this section's relas and see if
-	 * there are similar symbols.  Set them up to move to the same
-	 * klp_rela_section, too.
-	 */
-
-	list_for_each_entry(r1, &oldsec->relas, list) {
-		if (r1->sym->name == r->sym->name)
-			r1->klp_rela_sec = sec;
-	}
 	return true;
 }
 
@@ -566,35 +600,25 @@ static bool is_exported(char *sname)
 	return false;
 }
 
-/* Checks if a symbol was previously klp-converted based on its name */
-static bool is_converted(char *sname)
-{
-	int len = strlen(KLP_SYM_PREFIX);
-
-	if (strncmp(sname, KLP_SYM_PREFIX, len) == 0)
-		return true;
-	return false;
-}
-
-/*
- * Checks if symbol must be converted (conditions):
- * not resolved, not already converted or isn't an exported symbol
- */
-static bool must_convert(struct symbol *sym)
+/* Checks if symbol should be skipped */
+static bool skip_symbol(struct symbol *sym)
 {
 	/* already resolved? */
 	if (sym->sec)
-		return false;
+		return true;
 
 	/* skip symbol with index 0 */
 	if (!sym->idx)
-		return false;
+		return true;
 
 	/* we should not touch .TOC. on ppc64le */
 	if (strcmp(sym->name, ".TOC.") == 0)
-		return false;
+		return true;
 
-	return (!(is_converted(sym->name) || is_exported(sym->name)));
+	if (is_exported(sym->name))
+		return true;
+
+	return false;
 }
 
 /* Checks if a section is a klp rela section */
@@ -608,16 +632,17 @@ static bool is_klp_rela_section(char *sname)
 }
 
 /*
- * Frees the new names and rela sections as created by convert_rela()
+ * Frees the list, new names and rela sections as created by
+ * remember_sympos(), convert_rela(), and convert_symbol()
  */
 static void free_converted_resources(struct elf *klp_elf)
 {
-	struct symbol *sym;
+	struct converted_sym *cs, *cs_aux;
 	struct section *sec;
 
-	list_for_each_entry(sym, &klp_elf->symbols, list) {
-		if (sym->name && is_converted(sym->name))
-			free(sym->name);
+	list_for_each_entry_safe(cs, cs_aux, &converted_symbols, list) {
+		free(cs->symbol->name);
+		free(cs);
 	}
 
 	list_for_each_entry(sec, &klp_elf->sections, list) {
@@ -635,6 +660,7 @@ int main(int argc, const char **argv)
 	struct section *sec;
 	struct sympos sp;
 	struct elf *klp_elf;
+	struct converted_sym *cs;
 
 	if (argc != 4) {
 		WARN("Usage: %s <symbols.klp> <input.ko> <output.ko>", argv[0]);
@@ -665,27 +691,34 @@ int main(int argc, const char **argv)
 			continue;
 
 		list_for_each_entry(rela, &sec->relas, list) {
-			if (!must_convert(rela->sym))
+			if (skip_symbol(rela->sym))
 				continue;
 
-			if (!is_converted(rela->sym->name)) {
-				if (!find_missing_position(rela->sym, &sp)) {
-					WARN("Unable to find missing symbol: %s",
-							rela->sym->name);
-					return -1;
-				}
-				if (!convert_rela(sec, rela, &sp, klp_elf)) {
-					WARN("Unable to convert relocation: %s",
-							rela->sym->name);
-					return -1;
-				}
+			if (!find_sympos(rela->sym, &sp)) {
+				WARN("Unable to find missing symbol: %s",
+						rela->sym->name);
+				return -1;
+			}
+			if (!convert_rela(sec, rela, &sp, klp_elf)) {
+				WARN("Unable to convert relocation: %s",
+						rela->sym->name);
+				return -1;
 			}
 		}
 
 		/* Now move all converted relas in list-safe manner */
 		list_for_each_entry_safe(rela, tmprela, &sec->relas, list) {
-			if (is_converted(rela->sym->name))
+			if (is_converted_rela(rela))
 				move_rela(rela);
+		}
+	}
+
+	/* Rename the converted symbols */
+	list_for_each_entry(cs, &converted_symbols, list) {
+		if (!convert_symbol(cs->symbol, &cs->sympos)) {
+			WARN("Unable to convert symbol name (%s)\n",
+					cs->symbol->name);
+			return -1;
 		}
 	}
 
