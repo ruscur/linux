@@ -15,6 +15,9 @@ extern char homonym_string[];
 extern const char *get_homonym_string(void);
 extern const char *test_klp_get_driver_name(void);
 
+extern char klp_string_a[] __asm__("klp_string.12345");
+extern char klp_string_b[] __asm__("klp_string.67890");
+
 void print_saved_command_line(void)
 {
 	pr_info("saved_command_line, 0: %s\n", saved_command_line);
@@ -32,6 +35,12 @@ void print_homonym_string(void)
 	pr_info("get_homonym_string(), 1: %s\n", get_homonym_string());
 }
 
+void print_static_strings(void)
+{
+	pr_info("klp_string.12345 = %s\n", klp_string_a);
+	pr_info("klp_string.67890 = %s\n", klp_string_b);
+}
+
 /* provide a sysfs handle to invoke debug functions */
 static int print_debug = 0;
 static int print_debug_set(const char *val, const struct kernel_param *kp)
@@ -39,6 +48,7 @@ static int print_debug_set(const char *val, const struct kernel_param *kp)
 	print_saved_command_line();
 	print_driver_name();
 	print_homonym_string();
+	print_static_strings();
 
         return 0;
 }
@@ -74,6 +84,7 @@ KLP_MODULE_RELOC(test_klp_convert_mod) test_klp_convert_mod_relocs_a[] = {
 	KLP_SYMPOS(homonym_string, 1),
 	KLP_SYMPOS(get_homonym_string, 1),
 	KLP_SYMPOS(test_klp_get_driver_name, 0),
+	KLP_SYMPOS(klp_string_b, 1),
 };
 
 static struct klp_func funcs[] = {
