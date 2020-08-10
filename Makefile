@@ -645,8 +645,13 @@ KBUILD_MODULES :=
 KBUILD_BUILTIN := 1
 
 # If we have only "make modules", don't compile built-in objects.
+# When we're building livepatch modules, we need to consider the
+# built-in objects during the descend as well, as built-in objects may
+# hold symbols which are referenced from livepatches and are required by
+# klp-convert post-processing tool for resolving these cases.
+
 ifeq ($(MAKECMDGOALS),modules)
-  KBUILD_BUILTIN :=
+  KBUILD_BUILTIN := $(if $(CONFIG_LIVEPATCH),1)
 endif
 
 # If we have "make <whatever> modules", compile modules
@@ -1762,7 +1767,23 @@ PHONY += modules modules_install
 
 ifdef CONFIG_MODULES
 
+quiet_cmd_klp_map = KLP     Symbols.list
+SLIST = $(objtree)/Symbols.list
+
+define cmd_klp_map
+	$(shell echo "klp-convert-symbol-data.0.1" > $(SLIST))				\
+	$(shell echo "*vmlinux" >> $(SLIST))						\
+	$(shell nm -f posix $(objtree)/vmlinux | cut -d\  -f1 >> $(SLIST))		\
+	$(foreach ko, $(sort $(shell cat modules.order)),				\
+		$(eval mod = $(patsubst %.ko,%.mod,$(ko)))				\
+		$(eval obj = $(patsubst %.ko,%.o,$(ko)))				\
+		$(if $(shell grep -o LIVEPATCH $(mod)),,				\
+			$(shell echo "*$(shell basename -s .ko $(ko))" >> $(SLIST))	\
+			$(shell nm -f posix $(obj) | cut -d\  -f1 >> $(SLIST))))
+endef
+
 modules: modules_check
+	$(if $(CONFIG_LIVEPATCH), $(call cmd,klp_map))
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
 
 PHONY += modules_check
