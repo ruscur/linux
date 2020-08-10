@@ -123,6 +123,8 @@ endif
 # (needed for the shell)
 make-cmd = $(call escsq,$(subst $(pound),$$(pound),$(subst $$,$$$$,$(cmd_$(1)))))
 
+save-cmd = printf '%s\n' 'cmd_$@ := $(make-cmd)' > $(dot-target).cmd
+
 # Find any prerequisites that are newer than target or that do not exist.
 # (This is not true for now; $? should contain any non-existent prerequisites,
 # but it does not work as expected when .SECONDARY is present. This seems a bug
@@ -133,7 +135,7 @@ newer-prereqs = $(filter-out $(PHONY),$?)
 # Execute command if command has changed or prerequisite(s) are updated.
 if_changed = $(if $(newer-prereqs)$(cmd-check),                              \
 	$(cmd);                                                              \
-	printf '%s\n' 'cmd_$@ := $(make-cmd)' > $(dot-target).cmd, @:)
+	$(save-cmd), @:)
 
 # Execute the command and also postprocess generated .d dependencies file.
 if_changed_dep = $(if $(newer-prereqs)$(cmd-check),$(cmd_and_fixdep),@:)
