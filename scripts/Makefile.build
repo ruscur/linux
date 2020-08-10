@@ -265,13 +265,6 @@ define rule_as_o_S
 	$(call cmd,modversions_S)
 endef
 
-# Livepatch modules need special note
-ifdef CONFIG_LIVEPATCH
-cmd_livepatch = $(if $(LIVEPATCH_$(basetarget)), echo LIVEPATCH, echo)
-else
-cmd_livepatch = echo
-endif
-
 # Built-in and composite module parts
 .SECONDEXPANSION:
 $(obj)/%.o: $(src)/%.c $(recordmcount_source) $$(objtool_dep) FORCE
@@ -281,7 +274,6 @@ $(obj)/%.o: $(src)/%.c $(recordmcount_source) $$(objtool_dep) FORCE
 cmd_mod = { \
 	echo $(if $($*-objs)$($*-y)$($*-m), $(addprefix $(obj)/, $($*-objs) $($*-y) $($*-m)), $(@:.mod=.o)); \
 	$(undefined_syms) echo; \
-	${cmd_livepatch}; \
 	} > $@
 
 $(obj)/%.mod: $(obj)/%.o FORCE
