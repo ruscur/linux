@@ -33,7 +33,6 @@ struct symbol {
 	struct list_head list;
 	GElf_Sym sym;
 	struct section *sec;
-	struct section *klp_rela_sec;
 	char *name;
 	unsigned int idx;
 	unsigned char bind, type;
@@ -45,6 +44,7 @@ struct rela {
 	struct list_head list;
 	GElf_Rela rela;
 	struct symbol *sym;
+	struct section *klp_rela_sec;
 	unsigned int type;
 	unsigned long offset;
 	int addend;

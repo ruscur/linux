@@ -525,7 +525,7 @@ static bool convert_rela(struct section *oldsec, struct rela *r,
 
 	list_for_each_entry_safe(r1, r2, &oldsec->relas, list) {
 		if (r1->sym->name == r->sym->name)
-			r1->sym->klp_rela_sec = sec;
+			r1->klp_rela_sec = sec;
 	}
 	return true;
 }
@@ -534,7 +534,7 @@ static void move_rela(struct rela *r)
 {
 	/* Move the converted rela to klp rela section */
 	list_del(&r->list);
-	list_add(&r->list, &r->sym->klp_rela_sec->relas);
+	list_add(&r->list, &r->klp_rela_sec->relas);
 }
 
 /* Checks if given symbol name matches a symbol in exp_symbols */
@@ -667,8 +667,12 @@ int main(int argc, const char **argv)
 					return -1;
 				}
 			}
+		}
 
-			move_rela(rela);
+		/* Now move all converted relas in list-safe manner */
+		list_for_each_entry_safe(rela, tmprela, &sec->relas, list) {
+			if (is_converted(rela->sym->name))
+				move_rela(rela);
 		}
 	}
 
