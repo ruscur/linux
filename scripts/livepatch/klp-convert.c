@@ -318,8 +318,6 @@ static void print_valid_module_relocs(char *name)
 	bool first = true;
 
 	/* Symbols from the same object are locally gathered in the list */
-	fprintf(stderr, "Valid KLP_SYMPOS for symbol %s:\n", name);
-	fprintf(stderr, "-------------------------------------------------\n");
 	list_for_each_entry(e, &symbols, list) {
 		if (strcmp(e->object_name, cur_obj) != 0) {
 			cur_obj = e->object_name;
@@ -327,8 +325,12 @@ static void print_valid_module_relocs(char *name)
 		}
 		if (strcmp(e->symbol_name, name) == 0) {
 			if (counter == 0) {
-				if (!first)
+				if (first) {
+					fprintf(stderr, "Valid KLP_SYMPOS for symbol %s:\n", name);
+					fprintf(stderr, "-------------------------------------------------\n");
+				} else {
 					fprintf(stderr, "}\n");
+				}
 
 				fprintf(stderr, "KLP_MODULE_RELOC(%s){\n",
 						cur_obj);
@@ -338,7 +340,10 @@ static void print_valid_module_relocs(char *name)
 			counter++;
 		}
 	}
-	fprintf(stderr, "-------------------------------------------------\n");
+	if (!first) {
+		fprintf(stderr, "}\n");
+		fprintf(stderr, "-------------------------------------------------\n");
+	}
 }
 
 /*
