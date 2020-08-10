@@ -525,6 +525,18 @@ static int update_relas(struct elf *elf)
 	return 1;
 }
 
+static void update_groups(struct elf *elf)
+{
+	struct section *sec, *symtab;
+
+	symtab = find_section_by_name(elf, ".symtab");
+
+	list_for_each_entry(sec, &elf->sections, list) {
+		if (sec->sh.sh_type == SHT_GROUP)
+			sec->sh.sh_link = symtab->idx;
+	}
+}
+
 static void free_relas(struct elf *elf)
 {
 	struct section *sec, *symtab;
@@ -661,6 +673,8 @@ int elf_write_file(struct elf *elf, const char *file)
 	ret_relas = update_relas(elf);
 	if (ret_relas < 0)
 		return ret_relas;
+
+	update_groups(elf);
 
 	ret = write_file(elf, file);
 	if (ret)
