@@ -49,7 +49,6 @@
 *.zst
 Module.symvers
 modules.order
-symbols.klp
 
 #
 # Top-level generic files
@@ -62,6 +61,7 @@ symbols.klp
 /vmlinux.symvers
 /vmlinux-gdb.py
 /vmlinuz
+/symbols.klp
 /System.map
 /Module.markers
 /modules.builtin
