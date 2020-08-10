@@ -1515,14 +1515,14 @@ endif # CONFIG_MODULES
 # Directories & files removed with 'make clean'
 CLEAN_FILES += include/ksym vmlinux.symvers modules-only.symvers \
 	       modules.builtin modules.builtin.modinfo modules.nsdeps \
-	       compile_commands.json .thinlto-cache symbols.klp
+	       compile_commands.json .thinlto-cache
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_FILES += include/config include/generated          \
 		  arch/$(SRCARCH)/include/generated .tmp_objdiff \
 		  debian snap tar-install \
 		  .config .config.old .version \
-		  Module.symvers \
+		  Module.symvers symbols.klp \
 		  certs/signing_key.pem certs/signing_key.x509 \
 		  certs/x509.genkey \
 		  vmlinux-gdb.py \
