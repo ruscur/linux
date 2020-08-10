@@ -215,15 +215,20 @@ static void clear_sympos_annontations(struct elf *klp_elf)
 }
 
 /*
- * Checks if two or more elements in usr_symbols have the same
- * object and name, but different symbol position
+ * User provided sympos annotation checks:
+ * - do two or more elements in usr_symbols have the same object and
+ *   name, but different symbol position
+ * - are there any usr_symbols without a rela?
  */
-static bool sympos_sanity_check(void)
+static bool sympos_sanity_check(struct elf *klp_elf)
 {
 	bool sane = true;
 	struct sympos *sp, *aux;
+	struct section *sec;
+	struct rela *rela;
 
 	list_for_each_entry(sp, &usr_symbols, list) {
+		bool found_rela = false;
 		aux = list_next_entry(sp, list);
 		list_for_each_entry_from(aux, &usr_symbols, list) {
 			if (sp->pos != aux->pos &&
@@ -235,6 +240,22 @@ static bool sympos_sanity_check(void)
 				sane = false;
 			}
 		}
+
+		list_for_each_entry(sec, &klp_elf->sections, list) {
+			list_for_each_entry(rela, &sec->relas, list) {
+				if (!strcmp(sp->symbol_name, rela->sym->name)) {
+					found_rela = true;
+					break;
+				}
+			}
+		}
+		if (!found_rela) {
+			//sane = false;
+			WARN("Couldn't find rela for annotated symbol: %s",
+				sp->symbol_name);
+		}
+
+
 	}
 	return sane;
 }
@@ -306,7 +327,7 @@ static bool load_usr_symbols(struct elf *klp_elf)
 		}
 	}
 	clear_sympos_annontations(klp_elf);
-	return sympos_sanity_check();
+	return sympos_sanity_check(klp_elf);
 }
 
 /* prints list of valid sympos for symbol with provided name */
