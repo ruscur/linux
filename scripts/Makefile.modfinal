@@ -85,7 +85,7 @@ targets += $(modules) $(modules:.ko=.mod.o)
 # Live Patch
 # ---------------------------------------------------------------------------
 
-$(modules-klp:.ko=.tmp.ko): %.tmp.ko: %.o %.mod.o symbols.klp FORCE
+%.tmp.ko: %.o %.mod.o symbols.klp FORCE
 	+$(call if_changed,ld_ko_o)
 
 quiet_cmd_klp_convert = KLP     $@
