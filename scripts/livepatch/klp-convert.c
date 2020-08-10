@@ -477,7 +477,7 @@ static bool convert_klp_symbol(struct symbol *s, struct sympos *sp)
 
 		WARN("Length error (%s%s.%s,%s)", KLP_SYM_PREFIX,
 				sp->object_name, sp->symbol_name, pos);
-
+		free(name);
 		return false;
 	}
 
