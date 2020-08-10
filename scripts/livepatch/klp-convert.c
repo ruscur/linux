@@ -224,12 +224,12 @@ static bool load_usr_symbols(struct elf *klp_elf)
 {
 	char objname[MODULE_NAME_LEN];
 	struct sympos *sp;
-	struct section *sec, *aux, *relasec;
+	struct section *sec, *relasec;
 	struct rela *rela;
 	struct klp_module_reloc *reloc;
 	int i, nr_entries;
 
-	list_for_each_entry_safe(sec, aux, &klp_elf->sections, list) {
+	list_for_each_entry(sec, &klp_elf->sections, list) {
 		if (sscanf(sec->name, ".klp.module_relocs.%55s", objname) != 1)
 			continue;
 
@@ -502,7 +502,7 @@ static bool convert_rela(struct section *oldsec, struct rela *r,
 		struct sympos *sp, struct elf *klp_elf)
 {
 	struct section *sec;
-	struct rela *r1, *r2;
+	struct rela *r1;
 
 	sec = get_or_create_klp_rela_section(oldsec, sp, klp_elf);
 	if (!sec) {
@@ -523,7 +523,7 @@ static bool convert_rela(struct section *oldsec, struct rela *r,
 	 * klp_rela_section, too.
 	 */
 
-	list_for_each_entry_safe(r1, r2, &oldsec->relas, list) {
+	list_for_each_entry(r1, &oldsec->relas, list) {
 		if (r1->sym->name == r->sym->name)
 			r1->klp_rela_sec = sec;
 	}
@@ -619,7 +619,7 @@ int main(int argc, const char **argv)
 {
 	const char *klp_in_module, *klp_out_module, *symbols_list;
 	struct rela *rela, *tmprela;
-	struct section *sec, *aux;
+	struct section *sec;
 	struct sympos sp;
 	struct elf *klp_elf;
 
@@ -646,12 +646,12 @@ int main(int argc, const char **argv)
 		return -1;
 	}
 
-	list_for_each_entry_safe(sec, aux, &klp_elf->sections, list) {
+	list_for_each_entry(sec, &klp_elf->sections, list) {
 		if (!is_rela_section(sec) ||
 		    is_klp_rela_section(sec->name))
 			continue;
 
-		list_for_each_entry_safe(rela, tmprela, &sec->relas, list) {
+		list_for_each_entry(rela, &sec->relas, list) {
 			if (!must_convert(rela->sym))
 				continue;
 
