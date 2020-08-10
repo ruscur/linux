@@ -246,6 +246,7 @@ static bool load_usr_symbols(struct elf *klp_elf)
 	struct sympos *sp;
 	struct section *sec, *relasec;
 	struct rela *rela;
+	Elf_Data converted_data;
 	struct klp_module_reloc *reloc;
 	int i, nr_entries;
 
@@ -253,8 +254,22 @@ static bool load_usr_symbols(struct elf *klp_elf)
 		if (sscanf(sec->name, ".klp.module_relocs.%55s", objname) != 1)
 			continue;
 
+		/*
+		 * SYMPOS annotations are saved into arrays in
+		 * .klp.module_relocs.* sections of type PROGBITS, so we
+		 * need to manually translate the .sympos endianness in
+		 * case we may be cross-compiling.
+		 */
+		sec->elf_data->d_type = ELF_T_WORD;
+		converted_data.d_buf = sec->elf_data->d_buf;
+		converted_data.d_size = sec->elf_data->d_size;
+		converted_data.d_version = sec->elf_data->d_version;
+		gelf_xlatetom(klp_elf->elf, &converted_data, sec->elf_data,
+			      elf_getident(klp_elf->elf, NULL)[EI_DATA]);
+
+		reloc = converted_data.d_buf;
 		relasec = sec->rela;
-		reloc = sec->data;
+
 		i = 0;
 		nr_entries = sec->size / sizeof(*reloc);
 		list_for_each_entry(rela, &relasec->relas, list) {
