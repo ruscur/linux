@@ -1767,7 +1767,7 @@ PHONY += modules modules_install
 
 ifdef CONFIG_MODULES
 
-quiet_cmd_klp_map = KLP     Symbols.list
+quiet_cmd_klp_map = KLP     symbols.klp
 SLIST = $(objtree)/Symbols.list
 
 define cmd_klp_map

@@ -49,7 +49,7 @@
 *.zst
 Module.symvers
 modules.order
-Symbols.list
+symbols.klp
 
 #
 # Top-level generic files
