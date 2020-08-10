@@ -14,4 +14,12 @@ extern const char *test_klp_get_driver_name(void);
 extern char klp_string_a[] __asm__("klp_string.12345");
 extern char klp_string_b[] __asm__("klp_string.67890");
 
+/* klp-convert symbols - vmlinux */
+extern struct static_key_false tracepoint_printk_key;
+
+/* klp-convert symbols - test_klp_keys_mod.ko */
+extern struct static_key_true test_klp_true_key;
+extern struct static_key_false test_klp_false_key;
+
+
 #endif
