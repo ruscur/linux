@@ -668,6 +668,44 @@ static void free_converted_resources(struct elf *klp_elf)
 	}
 }
 
+/*
+ * Checks if section may be skipped (conditions)
+ */
+static bool skip_section(struct section *sec)
+{
+	if (!is_rela_section(sec))
+		return true;
+
+	if (is_klp_rela_section(sec->name))
+		return true;
+
+	return false;
+}
+
+/*
+ * Checks if rela conversion is supported in given section
+ */
+static bool supported_section(struct section *sec)
+{
+	const char *prefix_list[] = {
+		".rela.data",
+		".rela.exit.text",
+		".rela.init.data",
+		".rela.init.text",
+		".rela.rodata",
+		".rela.text",
+		".rela.toc",		/* powerpc */
+		NULL
+	};
+	const char **prefix;
+
+	for (prefix = prefix_list; *prefix; prefix++)
+		if (strncmp(sec->name, *prefix, strlen(*prefix)) == 0)
+			return true;
+
+	return false;
+}
+
 int main(int argc, const char **argv)
 {
 	const char *klp_in_module, *klp_out_module, *symbols_list;
@@ -701,13 +739,20 @@ int main(int argc, const char **argv)
 	}
 
 	list_for_each_entry(sec, &klp_elf->sections, list) {
-		if (!is_rela_section(sec) ||
-		    is_klp_rela_section(sec->name))
+		if (skip_section(sec))
 			continue;
 
 		list_for_each_entry(rela, &sec->relas, list) {
 			if (skip_symbol(rela->sym))
 				continue;
+
+			/* rela needs to be converted */
+
+			if (!supported_section(sec)) {
+				WARN("Conversion not supported for symbol: %s section: %s",
+						rela->sym->name, sec->name);
+				return -1;
+			}
 
 			if (!find_sympos(rela->sym, &sp)) {
 				WARN("Unable to find missing symbol: %s",
