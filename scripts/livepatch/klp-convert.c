@@ -714,6 +714,7 @@ int main(int argc, const char **argv)
 	struct sympos sp;
 	struct elf *klp_elf;
 	struct converted_sym *cs;
+	int errors = 0;
 
 	if (argc != 4) {
 		WARN("Usage: %s <symbols.klp> <input.ko> <output.ko>", argv[0]);
@@ -751,13 +752,15 @@ int main(int argc, const char **argv)
 			if (!supported_section(sec)) {
 				WARN("Conversion not supported for symbol: %s section: %s",
 						rela->sym->name, sec->name);
-				return -1;
+				errors++;
+				continue;
 			}
 
 			if (!find_sympos(rela->sym, &sp)) {
 				WARN("Unable to find missing symbol: %s",
 						rela->sym->name);
-				return -1;
+				errors++;
+				continue;
 			}
 			if (!convert_rela(sec, rela, &sp, klp_elf)) {
 				WARN("Unable to convert relocation: %s",
@@ -765,6 +768,9 @@ int main(int argc, const char **argv)
 				return -1;
 			}
 		}
+
+		if (errors)
+			return -1;
 
 		/* Now move all converted relas in list-safe manner */
 		list_for_each_entry_safe(rela, tmprela, &sec->relas, list) {
