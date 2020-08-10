@@ -711,7 +711,7 @@ static bool skip_section(struct section *sec)
 /*
  * Checks if rela conversion is supported in given section
  */
-static bool supported_section(struct section *sec)
+static bool supported_section(struct section *sec, char *object_name)
 {
 	const char *prefix_list[] = {
 		".rela.data",
@@ -724,6 +724,15 @@ static bool supported_section(struct section *sec)
 		NULL
 	};
 	const char **prefix;
+
+	/*
+	 * Only allow jump_table relocations to vmlinux as the
+	 * kernel can't ensure other target objects will be
+	 * present to fully initialize the static keys.
+	 */
+	if (strcmp(sec->name, ".rela__jump_table") == 0 &&
+	    strcmp(object_name, "vmlinux") == 0)
+		return true;
 
 	for (prefix = prefix_list; *prefix; prefix++)
 		if (strncmp(sec->name, *prefix, strlen(*prefix)) == 0)
@@ -775,16 +784,16 @@ int main(int argc, const char **argv)
 
 			/* rela needs to be converted */
 
-			if (!supported_section(sec)) {
-				WARN("Conversion not supported for symbol: %s section: %s",
-						rela->sym->name, sec->name);
-				errors++;
-				continue;
-			}
-
 			if (!find_sympos(rela->sym, &sp)) {
 				WARN("Unable to find missing symbol: %s",
 						rela->sym->name);
+				errors++;
+				continue;
+			}
+			if (!supported_section(sec, sp.object_name)) {
+				WARN("Conversion not supported for symbol: %s section: %s object: %s",
+						rela->sym->name, sec->name,
+						sp.object_name);
 				errors++;
 				continue;
 			}
