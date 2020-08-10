@@ -114,3 +114,4 @@ module_exit(test_klp_convert_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Joe Lawrence <joe.lawrence@redhat.com>");
 MODULE_DESCRIPTION("Livepatch test: klp-convert2");
+MODULE_INFO(livepatch, "Y");
