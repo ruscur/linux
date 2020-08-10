@@ -8,7 +8,7 @@
 
 /* Unique symbols that don't need sympos annotation */
 static const char driver_name[] = KBUILD_MODNAME;
-__used static const char *get_driver_name(void)
+__used static const char *test_klp_get_driver_name(void)
 {
 	return driver_name;
 }
