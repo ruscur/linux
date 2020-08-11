@@ -11,15 +11,6 @@
 #define WARN(format, ...) \
 	fprintf(stderr, "klp-convert: " format "\n", ##__VA_ARGS__)
 
-/*
- * klp-convert uses macros defined in the linux sources package. To prevent the
- * dependency when building locally, they are defined below. Also notice that
- * these should match the definitions from  the targeted kernel.
- */
-
-#define KLP_RELA_PREFIX		".klp.rela."
-#define KLP_SYM_PREFIX		".klp.sym."
-
 struct symbol_entry {
 	struct list_head list;
 	char *symbol_name;
@@ -33,7 +24,21 @@ struct sympos {
 	int pos;
 };
 
+/*
+ * klp-convert uses macros and structures defined in the linux sources
+ * package (see include/uapi/linux/livepatch.h). To prevent the
+ * dependency when building locally, they are defined below. Also notice
+ * that these should match the definitions from the targeted kernel.
+ */
+
+#define KLP_RELA_PREFIX		".klp.rela."
+#define KLP_SYM_PREFIX		".klp.sym."
+
+#ifndef __packed
+#define __packed        __attribute__((packed))
+#endif
+
 struct klp_module_reloc {
 	void *sym;
 	unsigned int sympos;
-} __attribute__((packed));
+} __packed;

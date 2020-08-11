@@ -15,6 +15,6 @@
 struct klp_module_reloc {
 	void *sym;
 	unsigned int sympos;
-} __attribute__((packed));
+} __packed;
 
 #endif /* _UAPI_LIVEPATCH_H */
