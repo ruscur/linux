@@ -524,9 +524,8 @@ static bool convert_rela(struct section *oldsec, struct rela *r,
 	 */
 
 	list_for_each_entry_safe(r1, r2, &oldsec->relas, list) {
-		if (r1->sym->name == r->sym->name) {
+		if (r1->sym->name == r->sym->name)
 			r1->sym->klp_rela_sec = sec;
-		}
 	}
 	return true;
 }
@@ -604,9 +603,8 @@ static void free_converted_resources(struct elf *klp_elf)
 	struct section *sec;
 
 	list_for_each_entry(sym, &klp_elf->symbols, list) {
-		if (sym->name && is_converted(sym->name)) {
+		if (sym->name && is_converted(sym->name))
 			free(sym->name);
-		}
 	}
 
 	list_for_each_entry(sec, &klp_elf->sections, list) {
