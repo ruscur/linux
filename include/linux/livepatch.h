@@ -240,8 +240,8 @@ int klp_apply_section_relocs(struct module *pmod, Elf_Shdr *sechdrs,
 /* Used to annotate symbol relocations in livepatches */
 #define KLP_MODULE_RELOC(obj)						\
 	struct klp_module_reloc						\
-	__attribute__((__section__(".klp.module_relocs." #obj)))	\
-	__attribute__((aligned (4)))
+	__section(".klp.module_relocs." #obj)				\
+	__aligned(4)
 
 #define KLP_SYMPOS(symbol, pos)						\
 	{								\
