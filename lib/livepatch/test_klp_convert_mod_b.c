@@ -6,8 +6,8 @@
  * symbols, forcing a livepatch to use sympos annotations.
  */
 
-static char homonym_string[] = "homonym string B";
-__used static char *get_homonym_string(void)
+static const char homonym_string[] = "homonym string B";
+__used static const char *get_homonym_string(void)
 {
 	return homonym_string;
 }
