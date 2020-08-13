@@ -40,11 +40,11 @@ static int print_debug_set(const char *val, const struct kernel_param *kp)
 	print_homonym_string();
 	print_static_strings();
 
-        return 0;
+	return 0;
 }
 static const struct kernel_param_ops print_debug_ops = {
-        .set = print_debug_set,
-        .get = param_get_int,
+	.set = print_debug_set,
+	.get = param_get_int,
 };
 module_param_cb(print_debug, &print_debug_ops, &print_debug, 0200);
 MODULE_PARM_DESC(print_debug, "print klp-convert debugging info");
