@@ -6,14 +6,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/livepatch.h>
-
-/* klp-convert symbols - vmlinux */
-extern char *saved_command_line;
-/* klp-convert symbols - test_klp_convert_mod.ko */
-extern char driver_name[];
-extern char homonym_string[];
-extern const char *get_homonym_string(void);
-extern const char *test_klp_get_driver_name(void);
+#include "test_klp_convert.h"
 
 void print_saved_command_line(void)
 {
