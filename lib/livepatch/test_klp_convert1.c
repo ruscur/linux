@@ -32,7 +32,7 @@ void print_static_strings(void)
 }
 
 /* provide a sysfs handle to invoke debug functions */
-static int print_debug = 0;
+static int print_debug;
 static int print_debug_set(const char *val, const struct kernel_param *kp)
 {
 	print_saved_command_line();
