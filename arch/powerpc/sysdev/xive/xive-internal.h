@@ -73,6 +73,8 @@ static inline u32 xive_alloc_order(u32 queue_shift)
 	return (queue_shift > PAGE_SHIFT) ? (queue_shift - PAGE_SHIFT) : 0;
 }
 
+#define XIVE_GFP (__GFP_NORETRY | __GFP_NOWARN | __GFP_NOMEMALLOC)
+
 extern bool xive_cmdline_disabled;
 
 #endif /*  __XIVE_INTERNAL_H */

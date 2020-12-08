@@ -1544,7 +1544,7 @@ __be32 *xive_queue_page_alloc(unsigned int cpu, u32 queue_shift)
 	__be32 *qpage;
 
 	alloc_order = xive_alloc_order(queue_shift);
-	pages = alloc_pages_node(cpu_to_node(cpu), GFP_KERNEL, alloc_order);
+	pages = alloc_pages_node(cpu_to_node(cpu), XIVE_GFP, alloc_order);
 	if (!pages)
 		return ERR_PTR(-ENOMEM);
 	qpage = (__be32 *)page_address(pages);

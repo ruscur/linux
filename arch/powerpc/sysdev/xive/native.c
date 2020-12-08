@@ -643,7 +643,7 @@ static bool xive_native_provision_pages(void)
 		 * XXX TODO: Try to make the allocation local to the node where
 		 * the chip resides.
 		 */
-		p = kmem_cache_alloc(xive_provision_cache, GFP_KERNEL);
+		p = kmem_cache_alloc(xive_provision_cache, XIVE_GFP);
 		if (!p) {
 			pr_err("Failed to allocate provisioning page\n");
 			return false;
