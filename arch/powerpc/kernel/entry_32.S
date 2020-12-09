@@ -104,28 +104,6 @@ crit_transfer_to_handler:
 _ASM_NOKPROBE_SYMBOL(crit_transfer_to_handler)
 #endif
 
-#ifdef CONFIG_40x
-	.globl	crit_transfer_to_handler
-crit_transfer_to_handler:
-	lwz	r0,crit_r10@l(0)
-	stw	r0,GPR10(r11)
-	lwz	r0,crit_r11@l(0)
-	stw	r0,GPR11(r11)
-	mfspr	r0,SPRN_SRR0
-	stw	r0,crit_srr0@l(0)
-	mfspr	r0,SPRN_SRR1
-	stw	r0,crit_srr1@l(0)
-
-	/* set the stack limit to the current stack */
-	mfspr	r8,SPRN_SPRG_THREAD
-	lwz	r0,KSP_LIMIT(r8)
-	stw	r0,saved_ksp_limit@l(0)
-	rlwinm	r0,r1,0,0,(31 - THREAD_SHIFT)
-	stw	r0,KSP_LIMIT(r8)
-	/* fall through */
-_ASM_NOKPROBE_SYMBOL(crit_transfer_to_handler)
-#endif
-
 /*
  * This code finishes saving the registers to the exception frame
  * and jumps to the appropriate handler for the exception, turning
@@ -155,7 +133,7 @@ transfer_to_handler:
 	addi	r2, r12, -THREAD
 	addi	r11,r1,STACK_FRAME_OVERHEAD
 	stw	r11,PT_REGS(r12)
-#if defined(CONFIG_40x) || defined(CONFIG_BOOKE)
+#ifdef CONFIG_BOOKE
 	/* Check to see if the dbcr0 register is set up to debug.  Use the
 	   internal debug mode bit to do this. */
 	lwz	r12,THREAD_DBCR0(r12)
@@ -165,7 +143,7 @@ transfer_to_handler:
 #ifdef CONFIG_PPC_BOOK3S_32
 	kuep_lock r11, r12
 #endif
-#if defined(CONFIG_40x) || defined(CONFIG_BOOKE)
+#ifdef CONFIG_BOOKE
 	beq+	3f
 	/* From user and task is ptraced - load up global dbcr0 */
 	li	r12,-1			/* clear all pending debug events */
@@ -235,9 +213,6 @@ transfer_to_handler_cont:
 	mtspr	SPRN_SRR1,r10
 	mtlr	r9
 	rfi				/* jump to handler, enable MMU */
-#ifdef CONFIG_40x
-	b .	/* Prevent prefetch past rfi */
-#endif
 
 #if defined (CONFIG_PPC_BOOK3S_32) || defined(CONFIG_E500)
 4:	rlwinm	r12,r12,0,~_TLF_NAPPING
@@ -267,9 +242,6 @@ _ASM_NOKPROBE_SYMBOL(transfer_to_handler_cont)
 	mtspr	SPRN_SRR0,r12
 	mtspr	SPRN_SRR1,r0
 	rfi
-#ifdef CONFIG_40x
-	b .	/* Prevent prefetch past rfi */
-#endif
 
 reenable_mmu:
 	/*
@@ -328,9 +300,6 @@ stack_ovf:
 	mtspr	SPRN_SRR0,r9
 	mtspr	SPRN_SRR1,r10
 	rfi
-#ifdef CONFIG_40x
-	b .	/* Prevent prefetch past rfi */
-#endif
 _ASM_NOKPROBE_SYMBOL(stack_ovf)
 #endif
 
@@ -478,9 +447,6 @@ syscall_exit_finish:
 	mtspr	SPRN_SRR0,r7
 	mtspr	SPRN_SRR1,r8
 	rfi
-#ifdef CONFIG_40x
-	b .	/* Prevent prefetch past rfi */
-#endif
 _ASM_NOKPROBE_SYMBOL(syscall_exit_finish)
 #ifdef CONFIG_44x
 2:	li	r7,0
@@ -611,9 +577,6 @@ ret_from_kernel_syscall:
 	mtspr	SPRN_SRR0, r9
 	mtspr	SPRN_SRR1, r10
 	rfi
-#ifdef CONFIG_40x
-	b .	/* Prevent prefetch past rfi */
-#endif
 _ASM_NOKPROBE_SYMBOL(ret_from_kernel_syscall)
 
 /*
@@ -817,9 +780,6 @@ fast_exception_return:
 	REST_GPR(12, r11)
 	lwz	r11,GPR11(r11)
 	rfi
-#ifdef CONFIG_40x
-	b .	/* Prevent prefetch past rfi */
-#endif
 _ASM_NOKPROBE_SYMBOL(fast_exception_return)
 
 #if !(defined(CONFIG_4xx) || defined(CONFIG_BOOKE))
@@ -1087,18 +1047,6 @@ _ASM_NOKPROBE_SYMBOL(exc_exit_restart)
  * time of the critical interrupt.
  *
  */
-#ifdef CONFIG_40x
-#define PPC_40x_TURN_OFF_MSR_DR						    \
-	/* avoid any possible TLB misses here by turning off MSR.DR, we	    \
-	 * assume the instructions here are mapped by a pinned TLB entry */ \
-	li	r10,MSR_IR;						    \
-	mtmsr	r10;							    \
-	isync;								    \
-	tophys(r1, r1);
-#else
-#define PPC_40x_TURN_OFF_MSR_DR
-#endif
-
 #define RET_FROM_EXC_LEVEL(exc_lvl_srr0, exc_lvl_srr1, exc_lvl_rfi)	\
 	REST_NVGPRS(r1);						\
 	lwz	r3,_MSR(r1);						\
@@ -1118,7 +1066,6 @@ _ASM_NOKPROBE_SYMBOL(exc_exit_restart)
 	mtlr	r11;							\
 	lwz	r10,_CCR(r1);						\
 	mtcrf	0xff,r10;						\
-	PPC_40x_TURN_OFF_MSR_DR;					\
 	lwz	r9,_DEAR(r1);						\
 	lwz	r10,_ESR(r1);						\
 	mtspr	SPRN_DEAR,r9;						\
@@ -1168,24 +1115,6 @@ _ASM_NOKPROBE_SYMBOL(exc_exit_restart)
 #else
 #define RESTORE_MMU_REGS
 #endif
-
-#ifdef CONFIG_40x
-	.globl	ret_from_crit_exc
-ret_from_crit_exc:
-	mfspr	r9,SPRN_SPRG_THREAD
-	lis	r10,saved_ksp_limit@ha;
-	lwz	r10,saved_ksp_limit@l(r10);
-	tovirt(r9,r9);
-	stw	r10,KSP_LIMIT(r9)
-	lis	r9,crit_srr0@ha;
-	lwz	r9,crit_srr0@l(r9);
-	lis	r10,crit_srr1@ha;
-	lwz	r10,crit_srr1@l(r10);
-	mtspr	SPRN_SRR0,r9;
-	mtspr	SPRN_SRR1,r10;
-	RET_FROM_EXC_LEVEL(SPRN_CSRR0, SPRN_CSRR1, PPC_RFCI)
-_ASM_NOKPROBE_SYMBOL(ret_from_crit_exc)
-#endif /* CONFIG_40x */
 
 #ifdef CONFIG_BOOKE
 	.globl	ret_from_crit_exc
