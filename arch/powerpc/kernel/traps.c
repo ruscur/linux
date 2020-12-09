@@ -2178,7 +2178,7 @@ void unrecoverable_exception(struct pt_regs *regs)
 }
 NOKPROBE_SYMBOL(unrecoverable_exception);
 
-#if defined(CONFIG_BOOKE_WDT) || defined(CONFIG_40x)
+#ifdef CONFIG_BOOKE_WDT
 /*
  * Default handler for a Watchdog exception,
  * spins until a reboot occurs

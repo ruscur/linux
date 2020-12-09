@@ -39,7 +39,7 @@ struct pt_regs;
 
 #define __ARCH_HAS_DO_SOFTIRQ
 
-#if defined(CONFIG_BOOKE) || defined(CONFIG_40x)
+#ifdef CONFIG_BOOKE
 /*
  * Per-cpu stacks for handling critical, debug and machine check
  * level interrupts.

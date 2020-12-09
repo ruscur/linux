@@ -126,9 +126,7 @@ int map_kernel_page(unsigned long va, phys_addr_t pa, pgprot_t prot);
  * (hardware-defined) PowerPC PTE as closely as possible.
  */
 
-#if defined(CONFIG_40x)
-#include <asm/nohash/32/pte-40x.h>
-#elif defined(CONFIG_44x)
+#if defined(CONFIG_44x)
 #include <asm/nohash/32/pte-44x.h>
 #elif defined(CONFIG_FSL_BOOKE) && defined(CONFIG_PTE_64BIT)
 #include <asm/nohash/pte-book3e.h>
