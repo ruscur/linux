@@ -410,7 +410,7 @@ syscall_exit_cont:
 	lwz	r3,GPR3(r1)
 1:
 #endif /* CONFIG_TRACE_IRQFLAGS */
-#if defined(CONFIG_4xx) || defined(CONFIG_BOOKE)
+#ifdef CONFIG_BOOKE
 	/* If the process has its own DBCR0 value, load it up.  The internal
 	   debug mode bit tells us that dbcr0 should be loaded. */
 	lwz	r0,THREAD+THREAD_DBCR0(r2)
@@ -561,7 +561,7 @@ syscall_exit_work:
 ret_from_kernel_syscall:
 	mfspr	r9, SPRN_SRR0
 	mfspr	r10, SPRN_SRR1
-#if !defined(CONFIG_4xx) && !defined(CONFIG_BOOKE)
+#ifndef CONFIG_BOOKE
 	LOAD_REG_IMMEDIATE(r11, MSR_KERNEL & ~(MSR_IR|MSR_DR))
 	mtmsr	r11
 #endif
@@ -756,7 +756,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_SPE)
 
 	.globl	fast_exception_return
 fast_exception_return:
-#if !(defined(CONFIG_4xx) || defined(CONFIG_BOOKE))
+#ifndef CONFIG_BOOKE
 	andi.	r10,r9,MSR_RI		/* check for recoverable interrupt */
 	beq	1f			/* if not, we've got problems */
 #endif
@@ -782,7 +782,7 @@ fast_exception_return:
 	rfi
 _ASM_NOKPROBE_SYMBOL(fast_exception_return)
 
-#if !(defined(CONFIG_4xx) || defined(CONFIG_BOOKE))
+#ifndef CONFIG_BOOKE
 /* check if the exception happened in a restartable section */
 1:	lis	r3,exc_exit_restart_end@ha
 	addi	r3,r3,exc_exit_restart_end@l
@@ -844,7 +844,7 @@ user_exc_return:		/* r10 contains MSR_KERNEL here */
 	bne	do_work
 
 restore_user:
-#if defined(CONFIG_4xx) || defined(CONFIG_BOOKE)
+#ifdef CONFIG_BOOKE
 	/* Check whether this process has its own DBCR0 value.  The internal
 	   debug mode bit tells us that dbcr0 should be loaded. */
 	lwz	r0,THREAD+THREAD_DBCR0(r2)
@@ -968,7 +968,7 @@ BEGIN_FTR_SECTION
 END_FTR_SECTION_IFSET(CPU_FTR_NEED_PAIRED_STWCX)
 	stwcx.	r0,0,r1			/* to clear the reservation */
 
-#if !(defined(CONFIG_4xx) || defined(CONFIG_BOOKE))
+#ifndef CONFIG_BOOKE
 	andi.	r10,r9,MSR_RI		/* check if this exception occurred */
 	beql	nonrecoverable		/* at a bad place (MSR:RI = 0) */
 
@@ -1004,7 +1004,7 @@ exc_exit_restart_end:
 _ASM_NOKPROBE_SYMBOL(exc_exit_restart)
 _ASM_NOKPROBE_SYMBOL(exc_exit_restart_end)
 
-#else /* !(CONFIG_4xx || CONFIG_BOOKE) */
+#else /* !CONFIG_BOOKE */
 	/*
 	 * This is a bit different on 4xx/Book-E because it doesn't have
 	 * the RI bit in the MSR.
@@ -1184,7 +1184,7 @@ load_dbcr0:
 global_dbcr0:
 	.space	8*NR_CPUS
 	.previous
-#endif /* !(CONFIG_4xx || CONFIG_BOOKE) */
+#endif /* !CONFIG_BOOKE */
 
 do_work:			/* r10 contains MSR_KERNEL here */
 	andi.	r0,r9,_TIF_NEED_RESCHED

@@ -473,7 +473,7 @@ static inline void release_output_lock(void) {}
 
 static inline int unrecoverable_excp(struct pt_regs *regs)
 {
-#if defined(CONFIG_4xx) || defined(CONFIG_PPC_BOOK3E)
+#if defined(CONFIG_44x) || defined(CONFIG_PPC_BOOK3E)
 	/* We have no MSR_RI bit on 4xx or Book3e, so we simply return false */
 	return 0;
 #else

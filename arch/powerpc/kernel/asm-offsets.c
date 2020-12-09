@@ -157,7 +157,7 @@ int main(void)
 	OFFSET(THREAD_USED_SPE, thread_struct, used_spe);
 #endif /* CONFIG_SPE */
 #endif /* CONFIG_PPC64 */
-#if defined(CONFIG_4xx) || defined(CONFIG_BOOKE)
+#ifdef CONFIG_BOOKE
 	OFFSET(THREAD_DBCR0, thread_struct, debug.dbcr0);
 #endif
 #ifdef CONFIG_KVM_BOOK3S_32_HANDLER
