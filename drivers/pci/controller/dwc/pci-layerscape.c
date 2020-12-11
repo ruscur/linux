@@ -22,6 +22,8 @@
 
 #include "pcie-designware.h"
 
+#define WORKAROUND_LATEST_POSSIBLE
+
 /* PEX1/2 Misc Ports Status Register */
 #define SCFG_PEXMSCPORTSR(pex_idx)	(0x94 + (pex_idx) * 4)
 #define LTSSM_STATE_SHIFT	20
@@ -113,9 +115,30 @@ static int ls_pcie_link_up(struct dw_pcie *pci)
 	struct ls_pcie *pcie = to_ls_pcie(pci);
 	u32 state;
 
+	/*
+	 * Strictly speaking *this* (before the ioread32) is the latest
+	 * point a simple delay can be effective. If we move the delay
+	 * after the ioread32 then the NVMe does not enumerate.
+	 *
+	 * However this function appears to be frequently called so an
+	 * unconditional delay here causes noticeable delay at boot
+	 * time. Hence we implement the workaround by retrying the read
+	 * after a short delay if we think we might need to return false.
+	 */
+
 	state = (ioread32(pcie->lut + pcie->drvdata->lut_dbg) >>
 		 pcie->drvdata->ltssm_shift) &
 		 LTSSM_STATE_MASK;
+
+#ifdef WORKAROUND_LATEST_POSSIBLE
+	if (state < LTSSM_PCIE_L0) {
+		/* see comment above */
+		mdelay(1);
+		state = (ioread32(pcie->lut + pcie->drvdata->lut_dbg) >>
+			 pcie->drvdata->ltssm_shift) &
+			 LTSSM_STATE_MASK;
+	}
+#endif
 
 	if (state < LTSSM_PCIE_L0)
 		return 0;
@@ -151,6 +174,18 @@ static int ls_pcie_host_init(struct pcie_port *pp)
 	ls_pcie_drop_msg_tlp(pcie);
 
 	dw_pcie_setup_rc(pp);
+
+#ifdef WORKAROUND_EARLIEST_POSSIBLE
+	/*
+	 * This is the earliest point the delay is effective.
+	 * If we move it before dw_pcie_setup_rc() then the
+	 * NVMe does not enumerate.
+	 *
+	 * 500us is too short to reliably work around the issue
+	 * hence adopting 1000us here.
+	 */
+	mdelay(1);
+#endif
 
 	return 0;
 }
