@@ -406,9 +406,9 @@ static void hugetlb_free_pmd_range(struct mmu_gather *tlb, pud_t *pud,
 	if (end - 1 > ceiling - 1)
 		return;
 
-	pmd = pmd_offset(pud, start);
+	pmd = pmd_offset(pud, start & PUD_MASK);
 	pud_clear(pud);
-	pmd_free_tlb(tlb, pmd, start);
+	pmd_free_tlb(tlb, pmd, start & PUD_MASK);
 	mm_dec_nr_pmds(tlb->mm);
 }
 
@@ -457,9 +457,9 @@ static void hugetlb_free_pud_range(struct mmu_gather *tlb, p4d_t *p4d,
 	if (end - 1 > ceiling - 1)
 		return;
 
-	pud = pud_offset(p4d, start);
+	pud = pud_offset(p4d, start & PGDIR_MASK);
 	p4d_clear(p4d);
-	pud_free_tlb(tlb, pud, start);
+	pud_free_tlb(tlb, pud, start & PGDIR_MASK);
 	mm_dec_nr_puds(tlb->mm);
 }
 
