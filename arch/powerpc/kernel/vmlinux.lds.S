@@ -193,12 +193,19 @@ SECTIONS
 #endif
 	} :text
 
+	/* .init.text is made RO and .exit.text is not, so we must
+	 * ensure these sections reside in separate physical pages.
+	 */
+	. = ALIGN(PAGE_SIZE);
+
 	/* .exit.text is discarded at runtime, not link time,
 	 * to deal with references from __bug_table
 	 */
 	.exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET) {
 		EXIT_TEXT
 	}
+
+	. = ALIGN(PAGE_SIZE);
 
 	.init.data : AT(ADDR(.init.data) - LOAD_OFFSET) {
 		INIT_DATA
