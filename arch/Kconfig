@@ -443,9 +443,22 @@ config MMU_LAZY_TLB
 config MMU_LAZY_TLB_REFCOUNT
 	def_bool y
 	depends on MMU_LAZY_TLB
+	depends on !MMU_LAZY_TLB_SHOOTDOWN
 	help
-	  This must be enabled if MMU_LAZY_TLB is enabled until the next
-	  patch.
+	  This refcounts the mm that is used as the lazy TLB mm when switching
+	  switching to a kernel thread.
+
+config MMU_LAZY_TLB_SHOOTDOWN
+	bool
+	depends on MMU_LAZY_TLB
+	help
+	  Instead of refcounting the "lazy tlb" mm struct, which can cause
+	  contention with multi-threaded apps on large multiprocessor systems,
+	  this option causes __mmdrop to IPI all CPUs in the mm_cpumask and
+	  switch to init_mm if they were using the to-be-freed mm as the lazy
+	  tlb. To implement this, architectures must use _lazy_tlb variants of
+	  mm refcounting, and mm_cpumask must include at least all possible
+	  CPUs in which mm might be lazy.
 
 config ARCH_HAVE_NMI_SAFE_CMPXCHG
 	bool
