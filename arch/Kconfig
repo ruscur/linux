@@ -430,6 +430,23 @@ config ARCH_WANT_IRQS_OFF_ACTIVATE_MM
 	  irqs disabled over activate_mm. Architectures that do IPI based TLB
 	  shootdowns should enable this.
 
+# Should make this depend on MMU, because there is little use for lazy mm switching
+# with NOMMU. Must audit NOMMU architecture code for lazy mm refcounting first.
+config MMU_LAZY_TLB
+	def_bool y
+	help
+	  Enable "lazy TLB" mmu context switching for kernel threads.
+	  If this is disabled then switching to a kernel thread always
+	  switches to init_mm. If mm switches are inexpensive or free
+	  (in the case of NOMMU) then this could be disabled.
+
+config MMU_LAZY_TLB_REFCOUNT
+	def_bool y
+	depends on MMU_LAZY_TLB
+	help
+	  This must be enabled if MMU_LAZY_TLB is enabled until the next
+	  patch.
+
 config ARCH_HAVE_NMI_SAFE_CMPXCHG
 	bool
 
