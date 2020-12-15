@@ -28,21 +28,13 @@ extern char _end[];
 extern unsigned char _compressed_start[];
 extern unsigned char _compressed_end[];
 
-#ifdef CONFIG_HAVE_KERNEL_BZIP2
-#define BOOT_HEAP_SIZE	0x400000
-#else
 #define BOOT_HEAP_SIZE	0x10000
-#endif
 
 static unsigned long free_mem_ptr = (unsigned long) _end;
 static unsigned long free_mem_end_ptr = (unsigned long) _end + BOOT_HEAP_SIZE;
 
 #ifdef CONFIG_KERNEL_GZIP
 #include "../../../../lib/decompress_inflate.c"
-#endif
-
-#ifdef CONFIG_KERNEL_BZIP2
-#include "../../../../lib/decompress_bunzip2.c"
 #endif
 
 #ifdef CONFIG_KERNEL_LZ4

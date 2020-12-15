@@ -7,7 +7,6 @@
 
 #include <linux/decompress/generic.h>
 
-#include <linux/decompress/bunzip2.h>
 #include <linux/decompress/unlzma.h>
 #include <linux/decompress/unxz.h>
 #include <linux/decompress/inflate.h>
@@ -22,9 +21,6 @@
 
 #ifndef CONFIG_DECOMPRESS_GZIP
 # define gunzip NULL
-#endif
-#ifndef CONFIG_DECOMPRESS_BZIP2
-# define bunzip2 NULL
 #endif
 #ifndef CONFIG_DECOMPRESS_LZMA
 # define unlzma NULL
@@ -51,7 +47,6 @@ struct compress_format {
 static const struct compress_format compressed_formats[] __initconst = {
 	{ {0x1f, 0x8b}, "gzip", gunzip },
 	{ {0x1f, 0x9e}, "gzip", gunzip },
-	{ {0x42, 0x5a}, "bzip2", bunzip2 },
 	{ {0x5d, 0x00}, "lzma", unlzma },
 	{ {0xfd, 0x37}, "xz", unxz },
 	{ {0x89, 0x4c}, "lzo", unlzo },

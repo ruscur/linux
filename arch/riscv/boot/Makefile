@@ -31,9 +31,6 @@ $(obj)/loader.o: $(src)/loader.S $(obj)/Image
 $(obj)/loader: $(obj)/loader.o $(obj)/Image $(obj)/loader.lds FORCE
 	$(Q)$(LD) -T $(obj)/loader.lds -o $@ $(obj)/loader.o
 
-$(obj)/Image.bz2: $(obj)/Image FORCE
-	$(call if_changed,bzip2)
-
 $(obj)/Image.lz4: $(obj)/Image FORCE
 	$(call if_changed,lz4)
 

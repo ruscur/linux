@@ -48,7 +48,6 @@ static int __init crd_load(decompress_fn deco);
  *	cramfs
  *	squashfs
  *	gzip
- *	bzip2
  *	lzma
  *	xz
  *	lzo

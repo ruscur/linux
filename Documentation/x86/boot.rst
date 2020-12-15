@@ -781,10 +781,10 @@ Protocol:	2.08+
   The payload may be compressed. The format of both the compressed and
   uncompressed data should be determined using the standard magic
   numbers.  The currently supported compression formats are gzip
-  (magic numbers 1F 8B or 1F 9E), bzip2 (magic number 42 5A), LZMA
-  (magic number 5D 00), XZ (magic number FD 37), LZ4 (magic number
-  02 21) and ZSTD (magic number 28 B5). The uncompressed payload is
-  currently always ELF (magic number 7F 45 4C 46).
+  (magic numbers 1F 8B or 1F 9E), LZMA (magic number 5D 00), XZ (magic
+  number FD 37), LZ4 (magic number 02 21) and ZSTD (magic number 28 B5).
+  Formerly supported was bzip2 (magic number 42 5A). The uncompressed
+  payload is currently always ELF (magic number 7F 45 4C 46).
 
 ============	==============
 Field name:	payload_length

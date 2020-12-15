@@ -60,14 +60,6 @@ config RD_GZIP
 	  Support loading of a gzip encoded initial ramdisk or cpio buffer.
 	  If unsure, say Y.
 
-config RD_BZIP2
-	bool "Support initial ramdisk/ramfs compressed using bzip2"
-	default y
-	select DECOMPRESS_BZIP2
-	help
-	  Support loading of a bzip2 encoded initial ramdisk or cpio buffer
-	  If unsure, say N.
-
 config RD_LZMA
 	bool "Support initial ramdisk/ramfs compressed using LZMA"
 	default y
@@ -143,19 +135,6 @@ config INITRAMFS_COMPRESSION_GZIP
 	  supported by your build system as the gzip tool is present by default
 	  on most distros.
 
-config INITRAMFS_COMPRESSION_BZIP2
-	bool "Bzip2"
-	depends on RD_BZIP2
-	help
-	  It's compression ratio and speed is intermediate. Decompression speed
-	  is slowest among the choices. The initramfs size is about 10% smaller
-	  with bzip2, in comparison to gzip. Bzip2 uses a large amount of
-	  memory. For modern kernels you will need at least 8MB RAM or more for
-	  booting.
-
-	  If you choose this, keep in mind that you need to have the bzip2 tool
-	  available to be able to compress the initram.
-
 config INITRAMFS_COMPRESSION_LZMA
 	bool "LZMA"
 	depends on RD_LZMA
@@ -175,9 +154,8 @@ config INITRAMFS_COMPRESSION_XZ
 	help
 	  XZ uses the LZMA2 algorithm and has a large dictionary which may cause
 	  problems on memory constrained systems. The initramfs size is about
-	  30% smaller with XZ in comparison to gzip. Decompression speed is
-	  better than that of bzip2 but worse than gzip and LZO. Compression is
-	  slow.
+	  30% smaller with XZ in comparison to gzip. Compression and
+	  decompression are slowest.
 
 	  If you choose this, keep in mind that you may need to install the xz
 	  tool to be able to compress the initram.
