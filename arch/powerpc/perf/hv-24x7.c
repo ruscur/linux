@@ -764,6 +764,16 @@ static ssize_t catalog_event_len_validate(struct hv_24x7_event_data *event,
 	return ev_len;
 }
 
+/*
+ * Return true incase of invalid or dummy events with names like FREE_* or CPM_FREE_*
+ * and RESERVED*
+ */
+static bool ignore_event(const char *name)
+{
+	return (strstr(name, "FREE_") || !strncmp(name, "RESERVED", 8)) ?
+			true : false;
+}
+
 #define MAX_4K (SIZE_MAX / 4096)
 
 static int create_events_from_catalog(struct attribute ***events_,
@@ -894,6 +904,10 @@ static int create_events_from_catalog(struct attribute ***events_,
 
 		name = event_name(event, &nl);
 
+		if (ignore_event(name)) {
+			junk_events++;
+			continue;
+		}
 		if (event->event_group_record_len == 0) {
 			pr_devel("invalid event %zu (%.*s): group_record_len == 0, skipping\n",
 					event_idx, nl, name);
@@ -955,6 +969,9 @@ static int create_events_from_catalog(struct attribute ***events_,
 			continue;
 
 		name  = event_name(event, &nl);
+		if (ignore_event(name))
+			continue;
+
 		nonce = event_uniq_add(&ev_uniq, name, nl, event->domain);
 		ct    = event_data_to_attrs(event_idx, events + event_attr_ct,
 					    event, nonce);
