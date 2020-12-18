@@ -300,7 +300,8 @@ void __init mem_init(void)
 	memblock_set_bottom_up(true);
 	if (is_secure_guest())
 		svm_swiotlb_init();
-	else
+	/* Server machines don't need SWIOTLB if they're not secure guests. */
+	else if (!machine_is(pseries) && !machine_is(powernv))
 		swiotlb_init(0);
 #endif
 
