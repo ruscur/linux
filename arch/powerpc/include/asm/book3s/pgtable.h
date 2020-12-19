@@ -35,7 +35,16 @@ extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
  * corresponding HPTE into the hash table ahead of time, instead of
  * waiting for the inevitable extra hash-table miss exception.
  */
-void update_mmu_cache(struct vm_area_struct *vma, unsigned long address, pte_t *ptep);
+void hash__update_mmu_cache(struct vm_area_struct *vma, unsigned long address, pte_t *ptep);
+
+static inline void update_mmu_cache(struct vm_area_struct *vma, unsigned long address, pte_t *ptep)
+{
+#ifdef CONFIG_PPC64
+	if (radix_enabled())
+		return;
+#endif
+	hash__update_mmu_cache(vma, address, ptep);
+}
 
 #endif /* __ASSEMBLY__ */
 #endif

@@ -325,8 +325,8 @@ static void hash_preload(struct mm_struct *mm, unsigned long ea)
  *
  * This must always be called with the pte lock held.
  */
-void update_mmu_cache(struct vm_area_struct *vma, unsigned long address,
-		      pte_t *ptep)
+void hash__update_mmu_cache(struct vm_area_struct *vma, unsigned long address,
+			    pte_t *ptep)
 {
 	if (!mmu_has_feature(MMU_FTR_HPTE_TABLE))
 		return;
