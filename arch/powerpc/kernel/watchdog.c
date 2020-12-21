@@ -27,6 +27,7 @@
 #include <linux/smp.h>
 
 #include <asm/paca.h>
+#include <asm/asm-prototypes.h>
 
 /*
  * The powerpc watchdog ensures that each CPU is able to service timers.
