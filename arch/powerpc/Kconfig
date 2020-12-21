@@ -255,6 +255,7 @@ config PPC
 	select PCI_MSI_ARCH_FALLBACKS		if PCI_MSI
 	select PCI_SYSCALL			if PCI
 	select PPC_DAWR				if PPC64
+	select PPC_QUEUED_SPINLOCKS		if !EXPERT && PPC_BOOK3S_64 && SMP
 	select RTC_LIB
 	select SPARSE_IRQ
 	select SYSCTL_EXCEPTION_TRACE
@@ -506,15 +507,12 @@ config HOTPLUG_CPU
 config PPC_QUEUED_SPINLOCKS
 	bool "Queued spinlocks"
 	depends on SMP
+	depends on EXPERT || PPC_BOOK3S_64
+
 	help
 	  Say Y here to use queued spinlocks which give better scalability and
 	  fairness on large SMP and NUMA systems without harming single threaded
 	  performance.
-
-	  This option is currently experimental, the code is more complex and
-	  less tested so it defaults to "N" for the moment.
-
-	  If unsure, say "N".
 
 config ARCH_CPU_PROBE_RELEASE
 	def_bool y
