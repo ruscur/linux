@@ -1455,8 +1455,8 @@ static void __show_regs(struct pt_regs *regs)
 {
 	int i, trap;
 
-	printk("NIP:  "REG" LR: "REG" CTR: "REG"\n",
-	       regs->nip, regs->link, regs->ctr);
+	printk("NIP: %pS LR: %pS CTR: "REG"\n",
+	       (void *)regs->nip, (void *)regs->link, regs->ctr);
 	printk("REGS: %px TRAP: %04lx   %s  (%s)\n",
 	       regs, regs->trap, print_tainted(), init_utsname()->release);
 	printk("MSR:  "REG" ", regs->msr);
@@ -1493,8 +1493,8 @@ static void __show_regs(struct pt_regs *regs)
 	 * above info out without failing
 	 */
 	if (IS_ENABLED(CONFIG_KALLSYMS)) {
-		printk("NIP ["REG"] %pS\n", regs->nip, (void *)regs->nip);
-		printk("LR ["REG"] %pS\n", regs->link, (void *)regs->link);
+		printk("NIP %pS\n", (void *)regs->nip);
+		printk("LR %pS\n", (void *)regs->link);
 	}
 }
 
@@ -2160,8 +2160,8 @@ void show_stack(struct task_struct *tsk, unsigned long *stack,
 		newsp = stack[0];
 		ip = stack[STACK_FRAME_LR_SAVE];
 		if (!firstframe || ip != lr) {
-			printk("%s["REG"] ["REG"] %pS",
-				loglvl, sp, ip, (void *)ip);
+			printk("%s ["REG"] %pS",
+				loglvl, sp, (void *)ip);
 			ret_addr = ftrace_graph_ret_addr(current,
 						&ftrace_idx, ip, stack);
 			if (ret_addr != ip)
