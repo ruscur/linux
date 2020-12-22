@@ -388,9 +388,10 @@ static void sanity_check_fault(bool is_write, bool is_user,
  * The return value is 0 if the fault was handled, or the signal
  * number if this is a kernel fault that can't be handled here.
  */
-static int __do_page_fault(struct pt_regs *regs, unsigned long address,
-			   unsigned long error_code)
+static int __do_page_fault(struct pt_regs *regs)
 {
+	unsigned long address = regs->dar;
+	unsigned long error_code = regs->dsisr;
 	struct vm_area_struct * vma;
 	struct mm_struct *mm = current->mm;
 	unsigned int flags = FAULT_FLAG_DEFAULT;
@@ -542,12 +543,11 @@ retry:
 }
 NOKPROBE_SYMBOL(__do_page_fault);
 
-int do_page_fault(struct pt_regs *regs, unsigned long address,
-		  unsigned long error_code)
+int do_page_fault(struct pt_regs *regs)
 {
 	const struct exception_table_entry *entry;
 	enum ctx_state prev_state = exception_enter();
-	int rc = __do_page_fault(regs, address, error_code);
+	int rc = __do_page_fault(regs);
 	exception_exit(prev_state);
 	if (likely(!rc))
 		return 0;
