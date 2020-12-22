@@ -318,7 +318,11 @@ stack_ovf:
 	ori	r12,r12,_end@l
 	cmplw	r1,r12
 	ble	5b			/* r1 <= &_end is OK */
+#ifdef CONFIG_HAVE_ARCH_VMAP_STACK
+	SAVE_NVGPRS(r1)
+#else
 	SAVE_NVGPRS(r11)
+#endif
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	lis	r1,init_thread_union@ha
 	addi	r1,r1,init_thread_union@l

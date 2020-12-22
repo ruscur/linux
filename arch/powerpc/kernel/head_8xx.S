@@ -316,8 +316,8 @@ InstructionTLBError:
 	tlbie	r12
 	/* 0x400 is InstructionAccess exception, needed by bad_page_fault() */
 .Litlbie:
-	stw	r12, _DAR(r11)
-	stw	r5, _DSISR(r11)
+	stw	r12, _DAR(r1)
+	stw	r5, _DSISR(r1)
 	EXC_XFER_LITE(0x400, handle_page_fault)
 
 /* This is the data TLB error on the MPC8xx.  This could be due to
@@ -335,8 +335,8 @@ DARFixed:/* Return from dcbx instruction bug workaround */
 	mtspr	SPRN_DAR, r11	/* Tag DAR, to be used in DTLB Error */
 	EXCEPTION_PROLOG_1
 	EXCEPTION_PROLOG_2 handle_dar_dsisr=1
-	lwz	r4, _DAR(r11)
-	lwz	r5, _DSISR(r11)
+	lwz	r4, _DAR(r1)
+	lwz	r5, _DSISR(r1)
 	andis.	r10,r5,DSISR_NOHPTE@h
 	beq+	.Ldtlbie
 	tlbie	r4
@@ -358,7 +358,7 @@ do_databreakpoint:
 	EXCEPTION_PROLOG_2 handle_dar_dsisr=1
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	mfspr	r4,SPRN_BAR
-	stw	r4,_DAR(r11)
+	stw	r4,_DAR(r1)
 	EXC_XFER_STD(0x1c00, do_break)
 
 	. = 0x1c00

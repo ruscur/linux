@@ -59,34 +59,33 @@
 1:
 	stw	r11,GPR1(r1)
 	stw	r11,0(r1)
-	mr	r11, r1
-	stw	r10,_CCR(r11)		/* save registers */
-	stw	r12,GPR12(r11)
-	stw	r9,GPR9(r11)
+	stw	r10,_CCR(r1)		/* save registers */
+	stw	r12,GPR12(r1)
+	stw	r9,GPR9(r1)
 	mfspr	r10,SPRN_SPRG_SCRATCH0
 	mfspr	r12,SPRN_SPRG_SCRATCH1
-	stw	r10,GPR10(r11)
-	stw	r12,GPR11(r11)
+	stw	r10,GPR10(r1)
+	stw	r12,GPR11(r1)
 	mflr	r10
-	stw	r10,_LINK(r11)
+	stw	r10,_LINK(r1)
 	mfspr	r12, SPRN_SPRG_THREAD
 	tovirt(r12, r12)
 	.if	\handle_dar_dsisr
 	lwz	r10, DAR(r12)
-	stw	r10, _DAR(r11)
+	stw	r10, _DAR(r1)
 	lwz	r10, DSISR(r12)
-	stw	r10, _DSISR(r11)
+	stw	r10, _DSISR(r1)
 	.endif
 	lwz	r9, SRR1(r12)
 	lwz	r12, SRR0(r12)
 	li	r10, MSR_KERNEL		/* can take exceptions */
 	mtmsr	r10			/* (except for mach check in rtas) */
-	stw	r0,GPR0(r11)
+	stw	r0,GPR0(r1)
 	lis	r10,STACK_FRAME_REGS_MARKER@ha /* exception frame marker */
 	addi	r10,r10,STACK_FRAME_REGS_MARKER@l
-	stw	r10,8(r11)
-	SAVE_4GPRS(3, r11)
-	SAVE_2GPRS(7, r11)
+	stw	r10,8(r1)
+	SAVE_4GPRS(3, r1)
+	SAVE_2GPRS(7, r1)
 .endm
 
 .macro SYSCALL_ENTRY trapno
@@ -196,7 +195,8 @@ label:
 
 #define EXC_XFER_TEMPLATE(hdlr, trap, tfer, ret)		\
 	li	r10,trap;					\
-	stw	r10,_TRAP(r11);					\
+	mr	r11, r1;					\
+	stw	r10,_TRAP(r1);					\
 	bl	tfer;						\
 	.long	hdlr;						\
 	.long	ret
