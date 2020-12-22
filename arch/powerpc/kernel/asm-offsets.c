@@ -132,7 +132,7 @@ int main(void)
 	OFFSET(KSP_VSID, thread_struct, ksp_vsid);
 #else /* CONFIG_PPC64 */
 	OFFSET(PGDIR, thread_struct, pgdir);
-#ifdef CONFIG_VMAP_STACK
+#ifdef CONFIG_HAVE_ARCH_VMAP_STACK
 	OFFSET(SRR0, thread_struct, srr0);
 	OFFSET(SRR1, thread_struct, srr1);
 	OFFSET(DAR, thread_struct, dar);

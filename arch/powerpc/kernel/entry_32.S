@@ -321,9 +321,6 @@ stack_ovf:
 	lis	r9,StackOverflow@ha
 	addi	r9,r9,StackOverflow@l
 	LOAD_REG_IMMEDIATE(r10,MSR_KERNEL)
-#if defined(CONFIG_PPC_8xx) && defined(CONFIG_PERF_EVENTS)
-	mtspr	SPRN_NRI, r0
-#endif
 	mtspr	SPRN_SRR0,r9
 	mtspr	SPRN_SRR1,r10
 	rfi
@@ -1353,7 +1350,7 @@ _GLOBAL(enter_rtas)
 	mtspr	SPRN_SRR1,r9
 	rfi
 1:	tophys_novmstack r9, r1
-#ifdef CONFIG_VMAP_STACK
+#ifdef CONFIG_HAVE_ARCH_VMAP_STACK
 	li	r0, MSR_KERNEL & ~MSR_IR	/* can take DTLB miss */
 	mtmsr	r0
 	isync

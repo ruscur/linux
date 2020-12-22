@@ -92,7 +92,7 @@ END_FTR_SECTION_IFSET(CPU_FTR_VSX)
 	/* enable use of FP after return */
 #ifdef CONFIG_PPC32
 	mfspr	r5,SPRN_SPRG_THREAD	/* current task's THREAD (phys) */
-#ifdef CONFIG_VMAP_STACK
+#ifdef CONFIG_HAVE_ARCH_VMAP_STACK
 	tovirt(r5, r5)
 #endif
 	lwz	r4,THREAD_FPEXC_MODE(r5)
