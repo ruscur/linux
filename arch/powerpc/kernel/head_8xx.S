@@ -335,9 +335,8 @@ DARFixed:/* Return from dcbx instruction bug workaround */
 	mtspr	SPRN_DAR, r11	/* Tag DAR, to be used in DTLB Error */
 	EXCEPTION_PROLOG_1
 	EXCEPTION_PROLOG_2 handle_dar_dsisr=1
+	andis.	r10,r11,DSISR_NOHPTE@h
 	lwz	r4, _DAR(r1)
-	lwz	r5, _DSISR(r1)
-	andis.	r10,r5,DSISR_NOHPTE@h
 	beq+	.Ldtlbie
 	tlbie	r4
 .Ldtlbie:

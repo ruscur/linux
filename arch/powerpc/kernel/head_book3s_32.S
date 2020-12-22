@@ -653,8 +653,7 @@ alignment_exception_tramp:
 
 handle_page_fault_tramp_1:
 	EXCEPTION_PROLOG_2 handle_dar_dsisr=1
-	lwz	r5, _DSISR(r1)
-	andis.	r0, r5, DSISR_DABRMATCH@h
+	andis.	r0, r11, DSISR_DABRMATCH@h
 	bne-	1f
 	EXC_XFER_LITE(0x300, handle_page_fault)
 1:	EXC_XFER_STD(0x300, do_break)

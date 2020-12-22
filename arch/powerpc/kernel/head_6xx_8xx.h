@@ -72,9 +72,9 @@
 	tovirt(r12, r12)
 	.if	\handle_dar_dsisr
 	lwz	r10, DAR(r12)
+	lwz	r11, DSISR(r12)
 	stw	r10, _DAR(r1)
-	lwz	r10, DSISR(r12)
-	stw	r10, _DSISR(r1)
+	stw	r11, _DSISR(r1)
 	.endif
 	lwz	r9, SRR1(r12)
 	lwz	r12, SRR0(r12)
