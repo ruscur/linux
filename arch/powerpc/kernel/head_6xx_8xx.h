@@ -101,26 +101,25 @@
 	tovirt(r12, r12)
 	stw	r11,GPR1(r1)
 	stw	r11,0(r1)
-	mr	r11, r1
 	mflr	r10
-	stw	r10, _LINK(r11)
+	stw	r10, _LINK(r1)
 	mfctr	r10
-	stw	r10,_NIP(r11)
+	stw	r10,_NIP(r1)
 	mfcr	r10
 	rlwinm	r10,r10,0,4,2	/* Clear SO bit in CR */
-	stw	r10,_CCR(r11)		/* save registers */
+	stw	r10,_CCR(r1)		/* save registers */
 	LOAD_REG_IMMEDIATE(r10, MSR_KERNEL & ~MSR_IR) /* can take exceptions */
 	mtmsr	r10			/* (except for mach check in rtas) */
 	lis	r10,STACK_FRAME_REGS_MARKER@ha /* exception frame marker */
-	stw	r2,GPR2(r11)
+	stw	r2,GPR2(r1)
 	addi	r10,r10,STACK_FRAME_REGS_MARKER@l
-	stw	r9,_MSR(r11)
+	stw	r9,_MSR(r1)
 	li	r2, \trapno + 1
-	stw	r10,8(r11)
-	stw	r2,_TRAP(r11)
-	SAVE_GPR(0, r11)
-	SAVE_4GPRS(3, r11)
-	SAVE_2GPRS(7, r11)
+	stw	r10,8(r1)
+	stw	r2,_TRAP(r1)
+	SAVE_GPR(0, r1)
+	SAVE_4GPRS(3, r1)
+	SAVE_2GPRS(7, r1)
 	addi	r11,r1,STACK_FRAME_OVERHEAD
 	addi	r2,r12,-THREAD
 	stw	r11,PT_REGS(r12)
