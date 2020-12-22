@@ -33,7 +33,11 @@
 #include <asm/kup.h>
 #include <asm/bug.h>
 
-#include "head_32.h"
+#ifdef CONFIG_40x
+#include "head_40x.h"
+#else
+#include "head_6xx_8xx.h"
+#endif
 
 /*
  * powerpc relies on return from interrupt/syscall being context synchronising

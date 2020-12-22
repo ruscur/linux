@@ -37,7 +37,7 @@
 #include <asm/ptrace.h>
 #include <asm/export.h>
 
-#include "head_32.h"
+#include "head_40x.h"
 
 /* As with the other PowerPC ports, it is expected that when code
  * execution begins here, the following registers contain valid, yet

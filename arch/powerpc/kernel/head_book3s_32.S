@@ -32,7 +32,7 @@
 #include <asm/export.h>
 #include <asm/feature-fixups.h>
 
-#include "head_32.h"
+#include "head_6xx_8xx.h"
 
 #define LOAD_BAT(n, reg, RA, RB)	\
 	/* see the comment for clear_bats() -- Cort */ \
@@ -272,7 +272,7 @@ MachineCheck:
 #endif
 	bne	cr1, 7f
 #endif /* CONFIG_PPC_CHRP */
-	EXCEPTION_PROLOG_1 for_rtas=1
+	EXCEPTION_PROLOG_1
 7:	EXCEPTION_PROLOG_2
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 #ifdef CONFIG_PPC_CHRP

@@ -30,7 +30,7 @@
 #include <asm/export.h>
 #include <asm/code-patching-asm.h>
 
-#include "head_32.h"
+#include "head_6xx_8xx.h"
 
 .macro compare_to_kernel_boundary scratch, addr
 #if CONFIG_TASK_SIZE <= 0x80000000 && CONFIG_PAGE_OFFSET >= 0x80000000
