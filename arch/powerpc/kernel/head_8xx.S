@@ -364,11 +364,6 @@ do_databreakpoint:
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	mfspr	r4,SPRN_BAR
 	stw	r4,_DAR(r11)
-#ifdef CONFIG_VMAP_STACK
-	lwz	r5,_DSISR(r11)
-#else
-	mfspr	r5,SPRN_DSISR
-#endif
 	EXC_XFER_STD(0x1c00, do_break)
 
 	. = 0x1c00
