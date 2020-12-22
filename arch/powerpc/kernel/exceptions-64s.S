@@ -2137,8 +2137,7 @@ EXC_COMMON_BEGIN(h_data_storage_common)
 	GEN_COMMON h_data_storage
 	addi    r3,r1,STACK_FRAME_OVERHEAD
 BEGIN_MMU_FTR_SECTION
-	ld	r4,_DAR(r1)
-	li	r5,SIGSEGV
+	li	r4,SIGSEGV
 	bl      bad_page_fault
 MMU_FTR_SECTION_ELSE
 	bl      unknown_exception
@@ -3256,9 +3255,8 @@ handle_page_fault:
 	bl	do_page_fault
 	cmpdi	r3,0
 	beq+	interrupt_return
-	mr	r5,r3
+	mr	r4,r3
 	addi	r3,r1,STACK_FRAME_OVERHEAD
-	ld	r4,_DAR(r1)
 	bl	__bad_page_fault
 	b	interrupt_return
 
@@ -3295,6 +3293,6 @@ handle_dabr_fault:
  * the access, or panic if there isn't a handler.
  */
 77:	addi	r3,r1,STACK_FRAME_OVERHEAD
-	li	r5,SIGSEGV
+	li	r4,SIGSEGV
 	bl	bad_page_fault
 	b	interrupt_return

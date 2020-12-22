@@ -1859,7 +1859,7 @@ void low_hash_fault(struct pt_regs *regs, unsigned long address, int rc)
 #endif
 			_exception(SIGBUS, regs, BUS_ADRERR, address);
 	} else
-		bad_page_fault(regs, address, SIGBUS);
+		bad_page_fault(regs, SIGBUS);
 
 	exception_exit(prev_state);
 }

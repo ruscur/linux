@@ -871,7 +871,7 @@ void do_bad_slb_fault(struct pt_regs *regs, unsigned long ea, long err)
 		if (user_mode(regs))
 			_exception(SIGSEGV, regs, SEGV_BNDERR, ea);
 		else
-			bad_page_fault(regs, ea, SIGSEGV);
+			bad_page_fault(regs, SIGSEGV);
 	} else if (err == -EINVAL) {
 		unrecoverable_exception(regs);
 	} else {
