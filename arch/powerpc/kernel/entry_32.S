@@ -213,12 +213,8 @@ transfer_to_handler_cont:
 3:
 	mflr	r9
 	tovirt_novmstack r2, r2 	/* set r2 to current */
-	tovirt_vmstack r9, r9
 	lwz	r11,0(r9)		/* virtual address of handler */
 	lwz	r9,4(r9)		/* where to go when done */
-#if defined(CONFIG_PPC_8xx) && defined(CONFIG_PERF_EVENTS)
-	mtspr	SPRN_NRI, r0
-#endif
 #ifdef CONFIG_TRACE_IRQFLAGS
 	/*
 	 * When tracing IRQ state (lockdep) we enable the MMU before we call
@@ -235,12 +231,18 @@ transfer_to_handler_cont:
 
 	/* MSR isn't changing, just transition directly */
 #endif
+#ifdef CONFIG_HAVE_ARCH_VMAP_STACK
+	mtctr	r11
+	mtlr	r9
+	bctr				/* jump to handler */
+#else
 	mtspr	SPRN_SRR0,r11
 	mtspr	SPRN_SRR1,r10
 	mtlr	r9
 	rfi				/* jump to handler, enable MMU */
 #ifdef CONFIG_40x
 	b .	/* Prevent prefetch past rfi */
+#endif
 #endif
 
 #if defined (CONFIG_PPC_BOOK3S_32) || defined(CONFIG_E500)
@@ -261,7 +263,9 @@ _ASM_NOKPROBE_SYMBOL(transfer_to_handler)
 _ASM_NOKPROBE_SYMBOL(transfer_to_handler_cont)
 
 #ifdef CONFIG_TRACE_IRQFLAGS
-1:	/* MSR is changing, re-enable MMU so we can notify lockdep. We need to
+1:
+#ifndef CONFIG_HAVE_ARCH_VMAP_STACK
+	/* MSR is changing, re-enable MMU so we can notify lockdep. We need to
 	 * keep interrupts disabled at this point otherwise we might risk
 	 * taking an interrupt before we tell lockdep they are enabled.
 	 */
@@ -276,6 +280,7 @@ _ASM_NOKPROBE_SYMBOL(transfer_to_handler_cont)
 #endif
 
 reenable_mmu:
+#endif
 	/*
 	 * We save a bunch of GPRs,
 	 * r3 can be different from GPR3(r1) at this point, r9 and r11
