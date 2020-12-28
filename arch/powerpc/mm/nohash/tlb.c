@@ -192,6 +192,9 @@ void local_flush_tlb_mm(struct mm_struct *mm)
 {
 	unsigned int pid;
 
+	if (WARN_ON(!mm))
+		return;
+
 	preempt_disable();
 	pid = mm->context.id;
 	if (pid != MMU_NO_CONTEXT)
@@ -205,8 +208,11 @@ void __local_flush_tlb_page(struct mm_struct *mm, unsigned long vmaddr,
 {
 	unsigned int pid;
 
+	if (WARN_ON(!mm))
+		return;
+
 	preempt_disable();
-	pid = mm ? mm->context.id : 0;
+	pid = mm->context.id;
 	if (pid != MMU_NO_CONTEXT)
 		_tlbil_va(vmaddr, pid, tsize, ind);
 	preempt_enable();
@@ -267,6 +273,9 @@ static void do_flush_tlb_page_ipi(void *param)
 void flush_tlb_mm(struct mm_struct *mm)
 {
 	unsigned int pid;
+
+	if (WARN_ON(!mm))
+		return;
 
 	preempt_disable();
 	pid = mm->context.id;
