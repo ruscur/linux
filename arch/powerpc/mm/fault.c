@@ -547,10 +547,11 @@ retry:
 }
 NOKPROBE_SYMBOL(___do_page_fault);
 
-static int __do_page_fault(struct pt_regs *regs, unsigned long address,
-		  unsigned long error_code)
+static long __do_page_fault(struct pt_regs *regs)
 {
-	int err;
+	unsigned long address = regs->dar;
+	unsigned long error_code = regs->dsisr;
+	long err;
 
 	err = ___do_page_fault(regs, address, error_code);
 	if (unlikely(err)) {
@@ -583,13 +584,12 @@ static int __do_page_fault(struct pt_regs *regs, unsigned long address,
 }
 NOKPROBE_SYMBOL(__do_page_fault);
 
-int do_page_fault(struct pt_regs *regs, unsigned long address,
-		  unsigned long error_code)
+long do_page_fault(struct pt_regs *regs)
 {
 	enum ctx_state prev_state = exception_enter();
-	int err;
+	long err;
 
-	err = __do_page_fault(regs, address, error_code);
+	err = __do_page_fault(regs);
 
 	exception_exit(prev_state);
 
