@@ -369,7 +369,9 @@ static void sanity_check_fault(bool is_write, bool is_user,
 #define page_fault_is_bad(__err)	(0)
 #elif defined(CONFIG_PPC_8xx)
 #define page_fault_is_bad(__err)	((__err) & DSISR_NOEXEC_OR_G)
-#elif defined(CONFIG_PPC64)
+#elif defined(CONFIG_PPC_BOOK3S_64)
+#define page_fault_is_bad(__err)	((__err) & (DSISR_BAD_FAULT_64S | DSISR_DABRMATCH))
+#elif defined(CONFIG_PPC_BOOK3E_64)
 #define page_fault_is_bad(__err)	((__err) & DSISR_BAD_FAULT_64S)
 #else
 #define page_fault_is_bad(__err)	((__err) & DSISR_BAD_FAULT_32S)
@@ -388,7 +390,7 @@ static void sanity_check_fault(bool is_write, bool is_user,
  * The return value is 0 if the fault was handled, or the signal
  * number if this is a kernel fault that can't be handled here.
  */
-static int __do_page_fault(struct pt_regs *regs, unsigned long address,
+static int ___do_page_fault(struct pt_regs *regs, unsigned long address,
 			   unsigned long error_code)
 {
 	struct vm_area_struct * vma;
@@ -404,6 +406,9 @@ static int __do_page_fault(struct pt_regs *regs, unsigned long address,
 		return 0;
 
 	if (unlikely(page_fault_is_bad(error_code))) {
+		if (IS_ENABLED(CONFIG_PPC_BOOK3S_64) && (error_code & DSISR_DABRMATCH))
+			return -1;
+
 		if (is_user) {
 			_exception(SIGBUS, regs, BUS_OBJERR, address);
 			return 0;
@@ -540,25 +545,55 @@ retry:
 
 	return 0;
 }
+NOKPROBE_SYMBOL(___do_page_fault);
+
+static int __do_page_fault(struct pt_regs *regs, unsigned long address,
+		  unsigned long error_code)
+{
+	int err;
+
+	err = ___do_page_fault(regs, address, error_code);
+	if (unlikely(err)) {
+		const struct exception_table_entry *entry;
+
+		entry = search_exception_tables(regs->nip);
+		if (likely(entry)) {
+			instruction_pointer_set(regs, extable_fixup(entry));
+			err = 0;
+		}
+	}
+
+#ifdef CONFIG_PPC_BOOK3S_64
+	/* 32 and 64e handle these errors in asm */
+	if (unlikely(err)) {
+		if (err > 0) {
+			__bad_page_fault(regs, address, err);
+			err = 0;
+		} else {
+			/*
+			 * do_break() may change NV GPRS while handling the
+			 * breakpoint. Return -ve to caller to do that.
+			 */
+			do_break(regs, address, error_code);
+		}
+	}
+#endif
+
+	return err;
+}
 NOKPROBE_SYMBOL(__do_page_fault);
 
 int do_page_fault(struct pt_regs *regs, unsigned long address,
 		  unsigned long error_code)
 {
-	const struct exception_table_entry *entry;
 	enum ctx_state prev_state = exception_enter();
-	int rc = __do_page_fault(regs, address, error_code);
+	int err;
+
+	err = __do_page_fault(regs, address, error_code);
+
 	exception_exit(prev_state);
-	if (likely(!rc))
-		return 0;
 
-	entry = search_exception_tables(regs->nip);
-	if (unlikely(!entry))
-		return rc;
-
-	instruction_pointer_set(regs, extable_fixup(entry));
-
-	return 0;
+	return err;
 }
 NOKPROBE_SYMBOL(do_page_fault);
 
