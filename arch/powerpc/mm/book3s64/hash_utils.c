@@ -1513,7 +1513,6 @@ EXPORT_SYMBOL_GPL(hash_page);
 
 DEFINE_INTERRUPT_HANDLER_RET(__do_hash_fault)
 {
-	enum ctx_state prev_state = exception_enter();
 	unsigned long ea = regs->dar;
 	unsigned long dsisr = regs->dsisr;
 	unsigned long access = _PAGE_PRESENT | _PAGE_READ;
@@ -1564,8 +1563,6 @@ DEFINE_INTERRUPT_HANDLER_RET(__do_hash_fault)
 	} else if (err) {
 		err = hash__do_page_fault(regs);
 	}
-
-	exception_exit(prev_state);
 
 	return err;
 }
