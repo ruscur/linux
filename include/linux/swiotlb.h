@@ -68,6 +68,12 @@ extern void swiotlb_tbl_sync_single(struct device *hwdev,
 dma_addr_t swiotlb_map(struct device *dev, phys_addr_t phys,
 		size_t size, enum dma_data_direction dir, unsigned long attrs);
 
+void *swiotlb_alloc(struct device *dev, size_t size, dma_addr_t *dma_handle,
+		    unsigned long attrs);
+
+void swiotlb_free(struct device *dev, size_t size, void *vaddr,
+		  dma_addr_t dma_addr, unsigned long attrs);
+
 #ifdef CONFIG_SWIOTLB
 extern enum swiotlb_force swiotlb_force;
 

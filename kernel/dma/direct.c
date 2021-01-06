@@ -137,6 +137,11 @@ void *dma_direct_alloc(struct device *dev, size_t size,
 	void *ret;
 	int err;
 
+#ifdef CONFIG_SWIOTLB
+	if (unlikely(dev->dma_io_tlb_mem))
+		return swiotlb_alloc(dev, size, dma_handle, attrs);
+#endif
+
 	size = PAGE_ALIGN(size);
 	if (attrs & DMA_ATTR_NO_WARN)
 		gfp |= __GFP_NOWARN;
@@ -245,6 +250,13 @@ void dma_direct_free(struct device *dev, size_t size,
 		void *cpu_addr, dma_addr_t dma_addr, unsigned long attrs)
 {
 	unsigned int page_order = get_order(size);
+
+#ifdef CONFIG_SWIOTLB
+	if (unlikely(dev->dma_io_tlb_mem)) {
+		swiotlb_free(dev, size, cpu_addr, dma_addr, attrs);
+		return;
+	}
+#endif
 
 	if ((attrs & DMA_ATTR_NO_KERNEL_MAPPING) &&
 	    !force_dma_unencrypted(dev)) {
