@@ -106,13 +106,21 @@ int gettimeofday_fallback(struct __kernel_old_timeval *_tv, struct timezone *_tz
 static __always_inline
 int clock_gettime_fallback(clockid_t _clkid, struct __kernel_timespec *_ts)
 {
+#ifndef __powerpc64__
+	return do_syscall_2(__NR_clock_gettime64, _clkid, (unsigned long)_ts);
+#else
 	return do_syscall_2(__NR_clock_gettime, _clkid, (unsigned long)_ts);
+#endif
 }
 
 static __always_inline
 int clock_getres_fallback(clockid_t _clkid, struct __kernel_timespec *_ts)
 {
+#ifndef __powerpc64__
+	return do_syscall_2(__NR_clock_getres_time64, _clkid, (unsigned long)_ts);
+#else
 	return do_syscall_2(__NR_clock_getres, _clkid, (unsigned long)_ts);
+#endif
 }
 
 #ifdef CONFIG_VDSO32
