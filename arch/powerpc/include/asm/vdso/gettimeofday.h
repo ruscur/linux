@@ -103,21 +103,21 @@ int gettimeofday_fallback(struct __kernel_old_timeval *_tv, struct timezone *_tz
 	return do_syscall_2(__NR_gettimeofday, (unsigned long)_tv, (unsigned long)_tz);
 }
 
+#ifdef CONFIG_VDSO32
+
+#define BUILD_VDSO32		1
+
 static __always_inline
 int clock_gettime_fallback(clockid_t _clkid, struct __kernel_timespec *_ts)
 {
-	return do_syscall_2(__NR_clock_gettime, _clkid, (unsigned long)_ts);
+	return do_syscall_2(__NR_clock_gettime64, _clkid, (unsigned long)_ts);
 }
 
 static __always_inline
 int clock_getres_fallback(clockid_t _clkid, struct __kernel_timespec *_ts)
 {
-	return do_syscall_2(__NR_clock_getres, _clkid, (unsigned long)_ts);
+	return do_syscall_2(__NR_clock_getres_time64, _clkid, (unsigned long)_ts);
 }
-
-#ifdef CONFIG_VDSO32
-
-#define BUILD_VDSO32		1
 
 static __always_inline
 int clock_gettime32_fallback(clockid_t _clkid, struct old_timespec32 *_ts)
@@ -130,6 +130,21 @@ int clock_getres32_fallback(clockid_t _clkid, struct old_timespec32 *_ts)
 {
 	return do_syscall_2(__NR_clock_getres, _clkid, (unsigned long)_ts);
 }
+
+#else
+
+static __always_inline
+int clock_gettime_fallback(clockid_t _clkid, struct __kernel_timespec *_ts)
+{
+	return do_syscall_2(__NR_clock_gettime, _clkid, (unsigned long)_ts);
+}
+
+static __always_inline
+int clock_getres_fallback(clockid_t _clkid, struct __kernel_timespec *_ts)
+{
+	return do_syscall_2(__NR_clock_getres, _clkid, (unsigned long)_ts);
+}
+
 #endif
 
 static __always_inline u64 __arch_get_hw_counter(s32 clock_mode,
