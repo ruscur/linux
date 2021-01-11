@@ -36,6 +36,7 @@ struct cpu_hw_events {
 	u8  pmcs_enabled;
 	struct perf_event *event[MAX_HWEVENTS];
 	u64 events[MAX_HWEVENTS];
+	u64 events_config1[MAX_HWEVENTS];
 	unsigned int flags[MAX_HWEVENTS];
 	struct mmcr_regs mmcr;
 	struct perf_event *limited_counter[MAX_LIMITED_HWCOUNTERS];
@@ -938,7 +939,7 @@ static int power_check_constraints(struct cpu_hw_events *cpuhw,
 			event_id[i] = cpuhw->alternatives[i][0];
 		}
 		if (ppmu->get_constraint(event_id[i], &cpuhw->amasks[i][0],
-					 &cpuhw->avalues[i][0]))
+					 &cpuhw->avalues[i][0], cpuhw->events_config1[i]))
 			return -1;
 	}
 	value = mask = 0;
@@ -973,7 +974,8 @@ static int power_check_constraints(struct cpu_hw_events *cpuhw,
 		for (j = 1; j < n_alt[i]; ++j)
 			ppmu->get_constraint(cpuhw->alternatives[i][j],
 					     &cpuhw->amasks[i][j],
-					     &cpuhw->avalues[i][j]);
+					     &cpuhw->avalues[i][j],
+					     cpuhw->events_config1[i]);
 	}
 
 	/* enumerate all possibilities and see if any will work */
@@ -1391,7 +1393,7 @@ static void power_pmu_enable(struct pmu *pmu)
 	memset(&cpuhw->mmcr, 0, sizeof(cpuhw->mmcr));
 
 	if (ppmu->compute_mmcr(cpuhw->events, cpuhw->n_events, hwc_index,
-			       &cpuhw->mmcr, cpuhw->event)) {
+			       &cpuhw->mmcr, cpuhw->event, ppmu->flags)) {
 		/* shouldn't ever get here */
 		printk(KERN_ERR "oops compute_mmcr failed\n");
 		goto out;
@@ -1505,7 +1507,7 @@ static void power_pmu_enable(struct pmu *pmu)
 
 static int collect_events(struct perf_event *group, int max_count,
 			  struct perf_event *ctrs[], u64 *events,
-			  unsigned int *flags)
+			  unsigned int *flags, u64 *events_config1)
 {
 	int n = 0;
 	struct perf_event *event;
@@ -1515,6 +1517,7 @@ static int collect_events(struct perf_event *group, int max_count,
 			return -1;
 		ctrs[n] = group;
 		flags[n] = group->hw.event_base;
+		events_config1[n] = group->hw.extra_reg.config;
 		events[n++] = group->hw.config;
 	}
 	for_each_sibling_event(event, group) {
@@ -1524,6 +1527,7 @@ static int collect_events(struct perf_event *group, int max_count,
 				return -1;
 			ctrs[n] = event;
 			flags[n] = event->hw.event_base;
+			events_config1[n] = event->hw.extra_reg.config;
 			events[n++] = event->hw.config;
 		}
 	}
@@ -1556,6 +1560,7 @@ static int power_pmu_add(struct perf_event *event, int ef_flags)
 		goto out;
 	cpuhw->event[n0] = event;
 	cpuhw->events[n0] = event->hw.config;
+	cpuhw->events_config1[n0] = event->hw.extra_reg.config;
 	cpuhw->flags[n0] = event->hw.event_base;
 
 	/*
@@ -1582,6 +1587,7 @@ static int power_pmu_add(struct perf_event *event, int ef_flags)
 	if (power_check_constraints(cpuhw, cpuhw->events, cpuhw->flags, n0 + 1))
 		goto out;
 	event->hw.config = cpuhw->events[n0];
+	event->hw.extra_reg.config = cpuhw->events_config1[n0];
 
 nocheck:
 	ebb_event_add(event);
@@ -1629,6 +1635,7 @@ static void power_pmu_del(struct perf_event *event, int ef_flags)
 			while (++i < cpuhw->n_events) {
 				cpuhw->event[i-1] = cpuhw->event[i];
 				cpuhw->events[i-1] = cpuhw->events[i];
+				cpuhw->events_config1[i - 1] = cpuhw->events_config1[i];
 				cpuhw->flags[i-1] = cpuhw->flags[i];
 			}
 			--cpuhw->n_events;
@@ -1793,8 +1800,10 @@ static int power_pmu_commit_txn(struct pmu *pmu)
 	if (i < 0)
 		return -EAGAIN;
 
-	for (i = cpuhw->n_txn_start; i < n; ++i)
+	for (i = cpuhw->n_txn_start; i < n; ++i) {
 		cpuhw->event[i]->hw.config = cpuhw->events[i];
+		cpuhw->event[i]->hw.extra_reg.config = cpuhw->events_config1[i];
+	}
 
 	cpuhw->txn_flags = 0;
 	perf_pmu_enable(pmu);
@@ -1919,6 +1928,7 @@ static int power_pmu_event_init(struct perf_event *event)
 	unsigned long flags, irq_flags;
 	struct perf_event *ctrs[MAX_HWEVENTS];
 	u64 events[MAX_HWEVENTS];
+	u64 events_config1[MAX_HWEVENTS];
 	unsigned int cflags[MAX_HWEVENTS];
 	int n;
 	int err;
@@ -2014,11 +2024,12 @@ static int power_pmu_event_init(struct perf_event *event)
 	n = 0;
 	if (event->group_leader != event) {
 		n = collect_events(event->group_leader, ppmu->n_counter - 1,
-				   ctrs, events, cflags);
+				   ctrs, events, cflags, events_config1);
 		if (n < 0)
 			return -EINVAL;
 	}
 	events[n] = ev;
+	events_config1[n] = event->attr.config1;
 	ctrs[n] = event;
 	cflags[n] = flags;
 	if (check_excludes(ctrs, cflags, n, 1))
@@ -2048,6 +2059,7 @@ static int power_pmu_event_init(struct perf_event *event)
 		return -EINVAL;
 
 	event->hw.config = events[n];
+	event->hw.extra_reg.config = events_config1[n];
 	event->hw.event_base = cflags[n];
 	event->hw.last_period = event->hw.sample_period;
 	local64_set(&event->hw.period_left, event->hw.last_period);
