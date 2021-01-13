@@ -10,6 +10,7 @@
  */
 
 #include <asm/asm-prototypes.h>
+#include <asm/interrupt.h>
 #include <asm/mmu.h>
 #include <asm/mmu_context.h>
 #include <asm/paca.h>
@@ -813,7 +814,7 @@ static long slb_allocate_user(struct mm_struct *mm, unsigned long ea)
 	return slb_insert_entry(ea, context, flags, ssize, false);
 }
 
-long do_slb_fault(struct pt_regs *regs)
+DEFINE_INTERRUPT_HANDLER_RAW(do_slb_fault)
 {
 	unsigned long ea = regs->dar;
 	unsigned long id = get_region_id(ea);
@@ -827,17 +828,19 @@ long do_slb_fault(struct pt_regs *regs)
 	/*
 	 * SLB kernel faults must be very careful not to touch anything
 	 * that is not bolted. E.g., PACA and global variables are okay,
-	 * mm->context stuff is not.
-	 *
-	 * SLB user faults can access all of kernel memory, but must be
-	 * careful not to touch things like IRQ state because it is not
-	 * "reconciled" here. The difficulty is that we must use
-	 * fast_exception_return to return from kernel SLB faults without
-	 * looking at possible non-bolted memory. We could test user vs
-	 * kernel faults in the interrupt handler asm and do a full fault,
-	 * reconcile, ret_from_except for user faults which would make them
-	 * first class kernel code. But for performance it's probably nicer
-	 * if they go via fast_exception_return too.
+	 * mm->context stuff is not. SLB user faults may access all of
+	 * memory (and induce one recursive SLB kernel fault), so the
+	 * kernel fault must not trample on the user fault state at those
+	 * points.
+	 */
+
+	/*
+	 * This is a _RAW interrupt handler, so it must not touch local
+	 * irq state, or schedule. We could test for usermode and upgrade
+	 * to a normal process context (synchronous) interrupt for those,
+	 * which would make them first-class kernel code and able to be
+	 * traced and instrumented, although performance would suffer a
+	 * bit, it would probably be a good tradeoff.
 	 */
 	if (id >= LINEAR_MAP_REGION_ID) {
 		long err;
@@ -866,7 +869,7 @@ long do_slb_fault(struct pt_regs *regs)
 	}
 }
 
-void do_bad_slb_fault(struct pt_regs *regs)
+DEFINE_INTERRUPT_HANDLER(do_bad_slb_fault)
 {
 	int err = regs->result;
 
