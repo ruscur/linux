@@ -8,6 +8,16 @@
 #include <asm/ftrace.h>
 #include <asm/runlatch.h>
 
+static inline void nap_adjust_return(struct pt_regs *regs)
+{
+#ifdef CONFIG_PPC_970_NAP
+	if (unlikely(test_thread_local_flags(_TLF_NAPPING))) {
+		clear_thread_local_flags(_TLF_NAPPING);
+		regs->nip = (unsigned long)power4_idle_nap_return;
+	}
+#endif
+}
+
 struct interrupt_state {
 #ifdef CONFIG_PPC_BOOK3E_64
 	enum ctx_state ctx_state;
@@ -99,6 +109,9 @@ static inline void interrupt_async_exit_prepare(struct pt_regs *regs, struct int
 {
 	irq_exit();
 	interrupt_exit_prepare(regs, state);
+
+	/* Adjust at exit so the main handler sees the true NIA */
+	nap_adjust_return(regs);
 }
 
 struct interrupt_nmi_state {
@@ -149,6 +162,8 @@ static inline void interrupt_nmi_exit_prepare(struct pt_regs *regs, struct inter
 			!firmware_has_feature(FW_FEATURE_LPAR) ||
 			radix_enabled() || (mfmsr() & MSR_DR))
 		nmi_exit();
+
+	nap_adjust_return(regs);
 
 #ifdef CONFIG_PPC64
 	this_cpu_set_ftrace_enabled(state->ftrace_enabled);
