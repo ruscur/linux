@@ -142,12 +142,13 @@ static bool get_usr_sympos(struct symbol *s, struct sympos *sp)
 }
 
 /* Removes symbols used for sympos annotation from livepatch elf object */
-static void clear_sympos_symbols(struct section *sec, struct elf *klp_elf)
+static void clear_sympos_symbols(struct section *annotation_sec,
+		struct elf *klp_elf)
 {
 	struct symbol *sym, *aux;
 
 	list_for_each_entry_safe(sym, aux, &klp_elf->symbols, list) {
-		if (sym->sec == sec) {
+		if (sym->sec == annotation_sec) {
 
 			struct section *sec;
 			struct rela *rela, *tmprela;
