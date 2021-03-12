@@ -245,7 +245,7 @@ static int read_relas(struct elf *elf)
 			symndx = GELF_R_SYM(rela->rela.r_info);
 			rela->sym = find_symbol_by_index(elf, symndx);
 			if (!rela->sym) {
-				WARN("can't find rela entry symbol %d for %s",
+				WARN("can't find rela entry symbol %u for %s",
 				     symndx, sec->name);
 				return -1;
 			}
