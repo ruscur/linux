@@ -53,10 +53,10 @@ static void free_syms_lists(void)
 static bool load_syms_lists(const char *symbols_list)
 {
 	FILE *fsyms;
-	struct symbol_entry *entry;
 	size_t len = 0;
 	ssize_t n;
 	char *obj = NULL, *sym = NULL;
+	bool ret = false;
 
 	fsyms = fopen(symbols_list, "r");
 	if (!fsyms) {
@@ -68,12 +68,12 @@ static bool load_syms_lists(const char *symbols_list)
 	n = getline(&sym, &len, fsyms);
 	if (n <= 0) {
 		WARN("Unable to read Symbol list: %s", symbols_list);
-		return false;
+		goto done;
 	}
 
 	if (strncmp(sym, "klp-convert-symbol-data.0.1", 27) != 0) {
 		WARN("Symbol list is in unknown format.");
-		return false;
+		goto done;
 	}
 
 	len = 0;
@@ -88,25 +88,32 @@ static bool load_syms_lists(const char *symbols_list)
 
 		/* Objects in symbols.klp are flagged with '*' */
 		if (sym[0] == '*') {
-			if (obj)
-				free(obj);
+			free(obj);
 			obj = strdup(sym+1);
 			if (!obj) {
 				WARN("Unable to allocate object name\n");
-				return false;
+				goto done;
 			}
 			free(sym);
 		} else {
+			struct symbol_entry *entry;
+
+			if (!obj) {
+				WARN("File format error\n");
+				goto done;
+			}
+
 			entry = calloc(1, sizeof(struct symbol_entry));
 			if (!entry) {
 				WARN("Unable to allocate Symbol entry\n");
-				return false;
+				goto done;
 			}
 
 			entry->object_name = strdup(obj);
 			if (!entry->object_name) {
 				WARN("Unable to allocate entry object name\n");
-				return false;
+				free(entry);
+				goto done;
 			}
 
 			entry->symbol_name = sym;
@@ -119,10 +126,13 @@ static bool load_syms_lists(const char *symbols_list)
 		sym = NULL;
 		n = getline(&sym, &len, fsyms);
 	}
+	ret = true;
+
+done:
 	free(sym);
 	free(obj);
 	fclose(fsyms);
-	return true;
+	return ret;
 }
 
 /* Searches for sympos of specific symbol in usr_symbols list */
@@ -252,11 +262,13 @@ static bool load_usr_symbols(struct elf *klp_elf)
 			sp->object_name = strdup(objname);
 			if (!sp->object_name) {
 				WARN("Unable to allocate object name\n");
+				free(sp);
 				return false;
 			}
 			sp->symbol_name = strdup(rela->sym->name);
 			if (!sp->symbol_name) {
 				WARN("Unable to allocate symbol name\n");
+				free(sp);
 				return false;
 			}
 			sp->pos = reloc[i].sympos;
