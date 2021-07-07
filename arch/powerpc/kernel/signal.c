@@ -289,7 +289,12 @@ void do_notify_resume(struct pt_regs *regs, unsigned long thread_info_flags)
 		klp_update_patch_state(current);
 
 	if (thread_info_flags & (_TIF_SIGPENDING | _TIF_NOTIFY_SIGNAL)) {
-		BUG_ON(regs != current->thread.regs);
+		if (regs != current->thread.regs) {
+			pr_info("regs=%px cur=%px pid=%d comm=%s\n",
+				regs, current->thread.regs,
+				current->pid, current->comm);
+			BUG();
+		}
 		do_signal(current);
 	}
 
