@@ -102,11 +102,12 @@ static inline void unuse_temporary_mm(struct temp_mm *temp_mm)
 }
 
 static DEFINE_PER_CPU(struct vm_struct *, text_poke_area);
+static DEFINE_PER_CPU(unsigned long, cpu_patching_addr);
 
 #if IS_BUILTIN(CONFIG_LKDTM)
 unsigned long read_cpu_patching_addr(unsigned int cpu)
 {
-	return (unsigned long)(per_cpu(text_poke_area, cpu))->addr;
+	return per_cpu(cpu_patching_addr, cpu);
 }
 #endif
 
@@ -121,6 +122,7 @@ static int text_area_cpu_up(unsigned int cpu)
 		return -1;
 	}
 	this_cpu_write(text_poke_area, area);
+	this_cpu_write(cpu_patching_addr, (unsigned long)area->addr);
 
 	return 0;
 }
@@ -146,7 +148,7 @@ void __init poking_init(void)
 /*
  * This can be called for kernel text or a module.
  */
-static int map_patch_area(void *addr, unsigned long text_poke_addr)
+static int map_patch_area(void *addr)
 {
 	unsigned long pfn;
 	int err;
@@ -156,17 +158,20 @@ static int map_patch_area(void *addr, unsigned long text_poke_addr)
 	else
 		pfn = __pa_symbol(addr) >> PAGE_SHIFT;
 
-	err = map_kernel_page(text_poke_addr, (pfn << PAGE_SHIFT), PAGE_KERNEL);
+	err = map_kernel_page(__this_cpu_read(cpu_patching_addr),
+			      (pfn << PAGE_SHIFT), PAGE_KERNEL);
 
-	pr_devel("Mapped addr %lx with pfn %lx:%d\n", text_poke_addr, pfn, err);
+	pr_devel("Mapped addr %lx with pfn %lx:%d\n",
+		 __this_cpu_read(cpu_patching_addr), pfn, err);
 	if (err)
 		return -1;
 
 	return 0;
 }
 
-static inline int unmap_patch_area(unsigned long addr)
+static inline int unmap_patch_area(void)
 {
+	unsigned long addr = __this_cpu_read(cpu_patching_addr);
 	pte_t *ptep;
 	pmd_t *pmdp;
 	pud_t *pudp;
@@ -175,23 +180,23 @@ static inline int unmap_patch_area(unsigned long addr)
 
 	pgdp = pgd_offset_k(addr);
 	if (unlikely(!pgdp))
-		return -EINVAL;
+		goto out_err;
 
 	p4dp = p4d_offset(pgdp, addr);
 	if (unlikely(!p4dp))
-		return -EINVAL;
+		goto out_err;
 
 	pudp = pud_offset(p4dp, addr);
 	if (unlikely(!pudp))
-		return -EINVAL;
+		goto out_err;
 
 	pmdp = pmd_offset(pudp, addr);
 	if (unlikely(!pmdp))
-		return -EINVAL;
+		goto out_err;
 
 	ptep = pte_offset_kernel(pmdp, addr);
 	if (unlikely(!ptep))
-		return -EINVAL;
+		goto out_err;
 
 	pr_devel("clearing mm %p, pte %p, addr %lx\n", &init_mm, ptep, addr);
 
@@ -202,15 +207,17 @@ static inline int unmap_patch_area(unsigned long addr)
 	flush_tlb_kernel_range(addr, addr + PAGE_SIZE);
 
 	return 0;
+
+out_err:
+	pr_warn("failed to unmap %lx\n", addr);
+	return -EINVAL;
 }
 
 static int do_patch_instruction(u32 *addr, struct ppc_inst instr)
 {
-	int err;
+	int err, rc = 0;
 	u32 *patch_addr = NULL;
 	unsigned long flags;
-	unsigned long text_poke_addr;
-	unsigned long kaddr = (unsigned long)addr;
 
 	/*
 	 * During early early boot patch_instruction is called
@@ -222,24 +229,20 @@ static int do_patch_instruction(u32 *addr, struct ppc_inst instr)
 
 	local_irq_save(flags);
 
-	text_poke_addr = (unsigned long)__this_cpu_read(text_poke_area)->addr;
-	if (map_patch_area(addr, text_poke_addr)) {
-		err = -1;
-		goto out;
-	}
-
-	patch_addr = (u32 *)(text_poke_addr + (kaddr & ~PAGE_MASK));
-
-	__patch_instruction(addr, instr, patch_addr);
-
-	err = unmap_patch_area(text_poke_addr);
+	err = map_patch_area(addr);
 	if (err)
-		pr_warn("failed to unmap %lx\n", text_poke_addr);
+		goto out;
+
+	patch_addr = (u32 *)(__this_cpu_read(cpu_patching_addr) | offset_in_page(addr));
+	rc = __patch_instruction(addr, instr, patch_addr);
+
+	err = unmap_patch_area();
 
 out:
 	local_irq_restore(flags);
+	WARN_ON(!ppc_inst_equal(ppc_inst_read(addr), instr));
 
-	return err;
+	return rc ? rc : err;
 }
 #else /* !CONFIG_STRICT_KERNEL_RWX */
 
