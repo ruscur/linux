@@ -178,11 +178,83 @@ out:
 
 	return err;
 }
+
+static int do_poke_write(void *dest, const void *src, size_t size, unsigned long poke_addr)
+{
+	unsigned long patch_addr = poke_addr + offset_in_page(dest);
+
+	if (map_patch_area(dest, poke_addr)) {
+		pr_warn("failed to map %lx\n", poke_addr);
+		return -1;
+	}
+
+	memcpy((u8 *)patch_addr, src, size);
+	barrier();
+
+	if (unmap_patch_area(poke_addr)) {
+		pr_warn("failed to unmap %lx\n", poke_addr);
+		return -1;
+	}
+
+	return 0;
+}
+/**
+ * poke_write - write data using the text poke area
+ *
+ * @dest:	destination address
+ * @src:	source address
+ * @size:	size in bytes
+ *
+ * like memcpy(), but using the text poke area. No atomicity guarantees.
+ * Do not use for instructions, use patch_instruction() instead.
+ * Can handle crossing 1 page boundary.
+ *
+ * Return value:
+ * 	@dest
+ **/
+void *poke_write(void *dest, const void *src, size_t size)
+{
+	bool cross_page_boundary = offset_in_page(dest) + size > PAGE_SIZE;
+	unsigned long text_poke_addr;
+	unsigned long flags;
+	size_t write_size, overflow_size;
+
+	// If the poke area isn't set up, it's early boot and we can just memcpy.
+	if (!this_cpu_read(text_poke_area))
+		return memcpy(dest, src, size);
+
+	if (cross_page_boundary) {
+		write_size = PAGE_SIZE - offset_in_page(dest);
+		overflow_size = size - write_size;
+	} else {
+		write_size = size;
+	}
+
+	local_irq_save(flags);
+
+	text_poke_addr = (unsigned long)__this_cpu_read(text_poke_area)->addr;
+
+	if (do_poke_write(dest, src, write_size, text_poke_addr))
+		goto out;
+
+	if (cross_page_boundary)
+		do_poke_write(dest + write_size, src + write_size, overflow_size, text_poke_addr);
+
+out:
+	local_irq_restore(flags);
+
+	return dest;
+}
 #else /* !CONFIG_STRICT_KERNEL_RWX */
 
 static int do_patch_instruction(u32 *addr, struct ppc_inst instr)
 {
 	return raw_patch_instruction(addr, instr);
+}
+
+void *poke_write(void *dest, const void *src, size_t size)
+{
+	return memcpy(dest, src, size);
 }
 
 #endif /* CONFIG_STRICT_KERNEL_RWX */
