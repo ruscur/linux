@@ -13,6 +13,7 @@
 #include <asm/page.h>
 #include <asm/code-patching.h>
 #include <asm/inst.h>
+#include <asm/cacheflush.h>
 
 static int __patch_instruction(u32 *exec_addr, ppc_inst_t instr, u32 *patch_addr)
 {
@@ -165,11 +166,75 @@ static int do_patch_instruction(u32 *addr, ppc_inst_t instr)
 
 	return err;
 }
+
+static int do_patch_memory(void *dest, const void *src, size_t size)
+{
+	int err;
+	unsigned long text_poke_addr, patch_addr;
+
+	text_poke_addr = (unsigned long)__this_cpu_read(text_poke_area)->addr;
+
+	err = map_patch_area(dest, text_poke_addr);
+	if (err)
+		return err;
+
+	patch_addr = text_poke_addr + offset_in_page(dest);
+	copy_to_kernel_nofault((u8 *)patch_addr, src, size);
+
+	flush_icache_range(patch_addr, size);
+	unmap_patch_area(text_poke_addr);
+
+	return 0;
+}
+
+/**
+ * patch_memory - write data using the text poke area
+ *
+ * @dest:	destination address
+ * @src:	source address
+ * @size:	size in bytes
+ *
+ * like memcpy(), but using the text poke area. No atomicity guarantees.
+ * Do not use for instructions, use patch_instruction() instead.
+ * Handles crossing page boundaries, though you shouldn't need to.
+ *
+ * Return value:
+ * 	@dest
+ **/
+void *patch_memory(void *dest, const void *src, size_t size)
+{
+	int err;
+	unsigned long flags;
+	size_t written, write_size;
+
+	// If the poke area isn't set up, it's early boot and we can just memcpy.
+	if (!this_cpu_read(text_poke_area))
+		return memcpy(dest, src, size);
+
+	for (written = 0; written < size; written += write_size) {
+		// Write as much as possible without crossing a page boundary.
+		write_size = min_t(size_t, size - written,
+				   PAGE_SIZE - offset_in_page(dest + written));
+
+		local_irq_save(flags);
+		err = do_patch_memory(dest + written, src + written, write_size);
+		local_irq_restore(flags);
+		if (err)
+			return ERR_PTR(err);
+	}
+
+	return dest;
+}
 #else /* !CONFIG_STRICT_KERNEL_RWX */
 
 static int do_patch_instruction(u32 *addr, ppc_inst_t instr)
 {
 	return raw_patch_instruction(addr, instr);
+}
+
+void *patch_memory(void *dest, const void *src, size_t size)
+{
+	return memcpy(dest, src, size);
 }
 
 #endif /* CONFIG_STRICT_KERNEL_RWX */
