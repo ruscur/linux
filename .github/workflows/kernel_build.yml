@@ -8,6 +8,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: install dependencies
-        run: sudo apt build-dep linux-generic -y
+        run: sudo apt install make gcc flex bison libelf-dev libssl-dev -y
       - name: build kernel
         run: make defconfig && make -j`nproc`
