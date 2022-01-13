@@ -8,6 +8,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: install dependencies
-        run: sudo apt install -y gcc make flex bison
+        run: sudo apt build-dep linux-generic -y
       - name: build kernel
         run: make defconfig && make -j`nproc`
