@@ -5,6 +5,10 @@ jobs:
   kernel:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        defconfig: [defconfig, allyesconfig, allmodconfig, allnoconfig]
+
     steps:
       - uses: actions/checkout@v2
       - name: install dependencies
