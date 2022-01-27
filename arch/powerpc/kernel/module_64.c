@@ -93,6 +93,17 @@ void *dereference_module_function_descriptor(struct module *mod, void *ptr)
 }
 #endif
 
+// Write to memory of a module whether it's RO or RW
+static int module_write(struct module *me, void *dest, const void *src, size_t size)
+{
+	if (IS_ENABLED(CONFIG_STRICT_MODULE_RWX) && me->state != MODULE_STATE_UNFORMED) {
+		return PTR_ERR_OR_ZERO(patch_memory(dest, src, size));
+	}
+
+	return PTR_ERR_OR_ZERO(memcpy(dest, src, size));
+}
+
+
 #define STUB_MAGIC 0x73747562 /* stub */
 
 /* Like PPC32, we need little trampolines to do > 24-bit jumps (into
@@ -353,8 +364,8 @@ static inline int create_ftrace_stub(struct ppc64_stub_entry *entry,
 					struct module *me)
 {
 	long reladdr;
+	struct ppc64_stub_entry tmp_entry;
 
-	memcpy(entry->jump, stub_insns, sizeof(stub_insns));
 
 	/* Stub uses address relative to kernel toc (from the paca) */
 	reladdr = addr - kernel_toc_addr();
@@ -364,12 +375,16 @@ static inline int create_ftrace_stub(struct ppc64_stub_entry *entry,
 		return 0;
 	}
 
-	entry->jump[1] |= PPC_HA(reladdr);
-	entry->jump[2] |= PPC_LO(reladdr);
+	memcpy(&tmp_entry.jump, stub_insns, sizeof(stub_insns));
+	tmp_entry.jump[1] |= PPC_HA(reladdr);
+	tmp_entry.jump[2] |= PPC_LO(reladdr);
 
 	/* Eventhough we don't use funcdata in the stub, it's needed elsewhere. */
-	entry->funcdata = func_desc(addr);
-	entry->magic = STUB_MAGIC;
+	tmp_entry.funcdata = func_desc(addr);
+	tmp_entry.magic = STUB_MAGIC;
+
+	if (module_write(me, entry, &tmp_entry, sizeof(struct ppc64_stub_entry)))
+		return 0;
 
 	return 1;
 }
@@ -422,17 +437,10 @@ static inline int create_stub(const Elf64_Shdr *sechdrs,
 			      const char *name)
 {
 	long reladdr;
-	func_desc_t desc;
-	int i;
+	struct ppc64_stub_entry tmp_entry;
 
 	if (is_mprofile_ftrace_call(name))
 		return create_ftrace_stub(entry, addr, me);
-
-	for (i = 0; i < sizeof(ppc64_stub_insns) / sizeof(u32); i++) {
-		if (patch_instruction(&entry->jump[i],
-				      ppc_inst(ppc64_stub_insns[i])))
-			return 0;
-	}
 
 	/* Stub uses address relative to r2. */
 	reladdr = (unsigned long)entry - my_r2(sechdrs, me);
@@ -443,23 +451,15 @@ static inline int create_stub(const Elf64_Shdr *sechdrs,
 	}
 	pr_debug("Stub %p get data from reladdr %li\n", entry, reladdr);
 
-	if (patch_instruction(&entry->jump[0],
-			      ppc_inst(entry->jump[0] | PPC_HA(reladdr))))
-		return 0;
+	memcpy(&tmp_entry.jump, stub_insns, sizeof(stub_insns));
+	tmp_entry.jump[1] |= PPC_HA(reladdr);
+	tmp_entry.jump[2] |= PPC_LO(reladdr);
 
-	if (patch_instruction(&entry->jump[1],
-			  ppc_inst(entry->jump[1] | PPC_LO(reladdr))))
-		return 0;
+	/* Eventhough we don't use funcdata in the stub, it's needed elsewhere. */
+	tmp_entry.funcdata = func_desc(addr);
+	tmp_entry.magic = STUB_MAGIC;
 
-	// func_desc_t is 8 bytes if ABIv2, else 16 bytes
-	desc = func_desc(addr);
-	for (i = 0; i < sizeof(func_desc_t) / sizeof(u32); i++) {
-		if (patch_instruction(((u32 *)&entry->funcdata) + i,
-				      ppc_inst(((u32 *)(&desc))[i])))
-			return 0;
-	}
-
-	if (patch_instruction(&entry->magic, ppc_inst(STUB_MAGIC)))
+	if (module_write(me, entry, &tmp_entry, sizeof(struct ppc64_stub_entry)))
 		return 0;
 
 	return 1;
@@ -534,6 +534,7 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 	Elf64_Sym *sym;
 	unsigned long *location;
 	unsigned long value;
+	int ret = 0;
 
 	pr_debug("Applying ADD relocate section %u to %u\n", relsec,
 	       sechdrs[relsec].sh_info);
@@ -567,16 +568,17 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 		switch (ELF64_R_TYPE(rela[i].r_info)) {
 		case R_PPC64_ADDR32:
 			/* Simply set it */
-			*(u32 *)location = value;
+			ret = module_write(me, location, &value, 4);
 			break;
 
 		case R_PPC64_ADDR64:
 			/* Simply set it */
-			*(unsigned long *)location = value;
+			ret = module_write(me, location, &value, 8);
 			break;
 
 		case R_PPC64_TOC:
-			*(unsigned long *)location = my_r2(sechdrs, me);
+			value = my_r2(sechdrs, me);
+			ret = module_write(me, location, &value, 8);
 			break;
 
 		case R_PPC64_TOC16:
@@ -587,17 +589,17 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 				       me->name, value);
 				return -ENOEXEC;
 			}
-			*((uint16_t *) location)
-				= (*((uint16_t *) location) & ~0xffff)
+			value = (*((uint16_t *) location) & ~0xffff)
 				| (value & 0xffff);
+			ret = module_write(me, location, &value, 2);
 			break;
 
 		case R_PPC64_TOC16_LO:
 			/* Subtract TOC pointer */
 			value -= my_r2(sechdrs, me);
-			*((uint16_t *) location)
-				= (*((uint16_t *) location) & ~0xffff)
+			value = (*((uint16_t *) location) & ~0xffff)
 				| (value & 0xffff);
+			ret = module_write(me, location, &value, 2);
 			break;
 
 		case R_PPC64_TOC16_DS:
@@ -608,9 +610,9 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 				       me->name, value);
 				return -ENOEXEC;
 			}
-			*((uint16_t *) location)
-				= (*((uint16_t *) location) & ~0xfffc)
+			value = (*((uint16_t *) location) & ~0xfffc)
 				| (value & 0xfffc);
+			ret = module_write(me, location, &value, 2);
 			break;
 
 		case R_PPC64_TOC16_LO_DS:
@@ -621,18 +623,18 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 				       me->name, value);
 				return -ENOEXEC;
 			}
-			*((uint16_t *) location)
-				= (*((uint16_t *) location) & ~0xfffc)
+			value = (*((uint16_t *) location) & ~0xfffc)
 				| (value & 0xfffc);
+			ret = module_write(me, location, &value, 2);
 			break;
 
 		case R_PPC64_TOC16_HA:
 			/* Subtract TOC pointer */
 			value -= my_r2(sechdrs, me);
 			value = ((value + 0x8000) >> 16);
-			*((uint16_t *) location)
-				= (*((uint16_t *) location) & ~0xffff)
+			value = (*((uint16_t *) location) & ~0xffff)
 				| (value & 0xffff);
+			ret = module_write(me, location, &value, 2);
 			break;
 
 		case R_PPC_REL24:
@@ -647,8 +649,9 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 				if (!restore_r2(strtab + sym->st_name,
 							(u32 *)location + 1, me))
 					return -ENOEXEC;
-			} else
+			} else {
 				value += local_entry_offset(sym);
+			}
 
 			/* Convert value to relative */
 			value -= (unsigned long)location;
@@ -662,14 +665,13 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 			value = (*(uint32_t *)location & ~0x03fffffc)
 				| (value & 0x03fffffc);
 
-			if (patch_instruction((u32 *)location, ppc_inst(value)))
-				return -EFAULT;
-
+			ret = module_write(me, location, &value, 4);
 			break;
 
 		case R_PPC64_REL64:
 			/* 64 bits relative (used by features fixups) */
-			*location = value - (unsigned long)location;
+			value -= (unsigned long)location;
+			ret = module_write(me, location, &value, 8);
 			break;
 
 		case R_PPC64_REL32:
@@ -681,7 +683,7 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 				       me->name, (long int)value);
 				return -ENOEXEC;
 			}
-			*(u32 *)location = value;
+			ret = module_write(me, location, &value, 4);
 			break;
 
 		case R_PPC64_TOCSAVE:
@@ -702,7 +704,7 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 				break;
 			/*
 			 * Check for the large code model prolog sequence:
-		         *	ld r2, ...(r12)
+			 *	ld r2, ...(r12)
 			 *	add r2, r2, r12
 			 */
 			if ((((uint32_t *)location)[0] & ~0xfffc) != PPC_RAW_LD(_R2, _R12, 0))
@@ -714,25 +716,26 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 			 *	addis r2, r12, (.TOC.-func)@ha
 			 *	addi  r2,  r2, (.TOC.-func)@l
 			 */
-			((uint32_t *)location)[0] = PPC_RAW_ADDIS(_R2, _R12, PPC_HA(value));
-			((uint32_t *)location)[1] = PPC_RAW_ADDI(_R2, _R2, PPC_LO(value));
+			value = (PPC_RAW_ADDIS(_R2, _R12, PPC_HA(value)) << 32)
+				| PPC_RAW_ADDI(_R2, _R2, PPC_LO(value));
+			ret = module_write(me, location, &value, 8);
 			break;
 
 		case R_PPC64_REL16_HA:
 			/* Subtract location pointer */
 			value -= (unsigned long)location;
 			value = ((value + 0x8000) >> 16);
-			*((uint16_t *) location)
-				= (*((uint16_t *) location) & ~0xffff)
+			value = (*((uint16_t *) location) & ~0xffff)
 				| (value & 0xffff);
+			ret = module_write(me, location, &value, 2);
 			break;
 
 		case R_PPC64_REL16_LO:
 			/* Subtract location pointer */
 			value -= (unsigned long)location;
-			*((uint16_t *) location)
-				= (*((uint16_t *) location) & ~0xffff)
+			value = (*((uint16_t *) location) & ~0xffff)
 				| (value & 0xffff);
+			ret = module_write(me, location, &value, 2);
 			break;
 
 		default:
@@ -743,7 +746,7 @@ int apply_relocate_add(Elf64_Shdr *sechdrs,
 		}
 	}
 
-	return 0;
+	return ret;
 }
 
 #ifdef CONFIG_DYNAMIC_FTRACE
